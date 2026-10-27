@@ -58,6 +58,11 @@ rag:
   # Starting value; to be tuned on dev / golden questions (M10-M11).
   min_relevance: 0.05
 
+agent:
+  max_hops: 2  # retrieval rounds; a bridge question needs 2 (find the entity, then its fact)
+  max_queries_per_hop: 3
+  max_sources: 10  # passages given to the answer step, merged from all hops
+
 local_models:  # ONNX models run in-process via fastembed (no PyTorch)
   cache_dir: .cache/models  # relative to project root; filled at Docker build time
   threads: 1  # Render free has ~0.5 vCPU; more threads only add memory

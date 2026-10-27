@@ -271,6 +271,18 @@ Live check on 6 dev questions + 2 unanswerable ones (not an evaluation, just a l
 - Both unanswerable questions refused: one by the model (World Cup 2030; the reranker still scored a World Cup paragraph 0.90, so the score threshold alone would not have caught it), one by code before any LLM call (best score 0.001).
 - Retrieval 1.5–4 s per question on my laptop (reranker on CPU + query embedding); LLM 0.8–2 s.
 
+**Agent as built (M9):** `plan → retrieve → grade →(gap, hops left) retrieve | extract → answer`, LangGraph `StateGraph`, nodes in `agent/nodes.py` as plain `(state, deps) -> dict` functions.
+- **Tool calling:** in `retrieve`, the model calls `search_documents(query)`; code runs all of a hop's calls as *one* coverage-aware search (question = main query, tool calls = sub-queries), so the M5 coverage bonus finally has sub-questions to work with. What earlier hops found is shown to the model, so hop 2 can search for a name hop 1 revealed. No tool call → the plan's sub-questions are used.
+- **Loop control is code:** search again only if the grader found a gap, proposed a follow-up search, and `max_hops` (2) is not used up.
+- **Evidence across hops** is interleaved by rank (hop 1 #1, hop 2 #1, …), deduplicated, capped at `max_sources` (10), so each hop's best passages reach the answer.
+- **Contradictions:** the grader model extracts claims `(subject, attribute, value, source, single_valued)`; `agent/contradiction.py` groups single-valued claims by normalized (subject, attribute) and flags different values from different sources. A conflict touching a cited source turns "answered" into "contradictory"; a model-reported contradiction the claim check did not find is kept with a warning. The source of each verdict is recorded for evaluation.
+- **Verification** reuses the baseline's citation check and refusal rules (verification is the second half of the answer node, not a separate node).
+- **Degradation:** planner fails → the question itself is the only sub-question; tool step fails → suggested searches; grader fails → stop searching; extractor fails → no contradiction check (warned); answer fails → "unavailable"; search fails → refusal.
+- **Cost:** 4–7 LLM calls per question (plan, 1–2 × [tool choice + grade], extract, answer) vs 1 for the baseline; LLM time ~5–11 s vs ~1–2 s. All on the free Gemini tier so far.
+- **Live look** (same 9 questions as the baseline): fixed the *Chikku Bukku* bridge question with a second hop (*The Classic* → Kwak Jae-yong); one regression (Johnny English: the grader accepted insufficient evidence and the answer was wrong); unanswerable questions still refused.
+- **Bug found live and fixed:** the first claim check flagged "John Doman / actor in = Emmett's Mark vs The Wire" as a contradiction. Conflicts only make sense for single-valued properties, so the extractor now marks `single_valued` and code ignores multi-valued claims.
+- **Memory:** 390 MB RSS in the 512 MB / 0.5 CPU container with everything loaded (was 383 MB before LangGraph).
+
 | Node | What it does | Who decides |
 |---|---|---|
 | `plan` | Structured output (Pydantic): question type (single / bridge / comparison), sub-questions | LLM |

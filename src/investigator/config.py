@@ -106,6 +106,12 @@ class RAGConfig(BaseModel):
     min_relevance: float
 
 
+class AgentConfig(BaseModel):
+    max_hops: int
+    max_queries_per_hop: int
+    max_sources: int
+
+
 class LocalModelsConfig(BaseModel):
     cache_dir: str
     threads: int | None  # None = all CPU cores (offline evaluation)
@@ -145,6 +151,7 @@ class AppConfig(BaseModel):
     index: IndexConfig
     retrieval: RetrievalConfig
     rag: RAGConfig
+    agent: AgentConfig
     local_models: LocalModelsConfig
     chunking: ChunkingConfig
     dataset: DatasetConfig
