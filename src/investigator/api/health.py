@@ -20,7 +20,9 @@ def peak_rss_mb() -> float:
         import resource
     except ImportError:  # Windows has no `resource` module
         return psutil.Process().memory_info().peak_wset / MB
-    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024  # Linux reports KB
+    # Linux reports KB and updates this high-water mark lazily, so it can lag
+    # slightly behind the current RSS; callers should take max(peak, current).
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
 
 
 def qdrant_is_reachable(client: QdrantClient) -> bool:

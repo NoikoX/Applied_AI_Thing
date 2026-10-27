@@ -25,10 +25,11 @@ def create_app(qdrant: QdrantClient, models: LocalModels) -> FastAPI:
     @app.get("/health")
     def health() -> dict:
         """Liveness: cheap, no external calls. Used by Render's health check."""
+        current = rss_mb()
         return {
             "status": "ok",
-            "rss_mb": round(rss_mb(), 1),
-            "peak_rss_mb": round(peak_rss_mb(), 1),
+            "rss_mb": round(current, 1),
+            "peak_rss_mb": round(max(peak_rss_mb(), current), 1),
         }
 
     @app.get("/health/deep")
