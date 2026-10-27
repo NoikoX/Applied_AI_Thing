@@ -1,0 +1,95 @@
+"""Configuration loading.
+
+Secrets come from the environment (or a local .env file); everything else
+comes from config/config.yaml. Both fail fast with a readable ConfigError.
+"""
+
+from pathlib import Path
+from typing import Literal
+
+import yaml
+from pydantic import BaseModel, SecretStr, ValidationError
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config" / "config.yaml"
+DEFAULT_ENV_FILE = PROJECT_ROOT / ".env"
+
+
+class ConfigError(RuntimeError):
+    """Configuration is missing or invalid."""
+
+
+class Secrets(BaseSettings):
+    """API keys and credentials. Field names map to upper-case env vars."""
+
+    model_config = SettingsConfigDict(extra="ignore")
+
+    gemini_api_key: SecretStr
+    openai_api_key: SecretStr
+    qdrant_url: str
+    qdrant_api_key: SecretStr
+    admin_token: SecretStr
+
+
+class ModelSpec(BaseModel):
+    provider: Literal["gemini", "openai"]
+    name: str
+
+
+class LLMConfig(BaseModel):
+    temperature: float = 0.0
+    planner: ModelSpec
+    answer: ModelSpec
+    grader: ModelSpec
+    fallback: ModelSpec
+    judge: ModelSpec
+
+
+class EmbeddingConfig(BaseModel):
+    provider: Literal["openai"]
+    name: str
+    dimensions: int
+
+
+class DatasetConfig(BaseModel):
+    hf_name: str
+    hf_config: str
+    split: str
+    n_questions: int
+    seed: int
+    dev_fraction: float
+
+
+class AppConfig(BaseModel):
+    llm: LLMConfig
+    embeddings: EmbeddingConfig
+    dataset: DatasetConfig
+
+
+def _describe(err: ValidationError) -> str:
+    return "; ".join(f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in err.errors())
+
+
+def load_config(path: Path = DEFAULT_CONFIG_PATH) -> AppConfig:
+    if not path.exists():
+        raise ConfigError(f"Config file not found: {path}")
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    try:
+        return AppConfig.model_validate(raw)
+    except ValidationError as err:
+        raise ConfigError(f"Invalid config in {path}: {_describe(err)}") from err
+
+
+def load_secrets(env_file: Path | None = DEFAULT_ENV_FILE) -> Secrets:
+    """Read secrets from the environment, falling back to env_file if it exists."""
+    try:
+        return Secrets(_env_file=env_file)
+    except ValidationError as err:
+        missing = [str(e["loc"][0]).upper() for e in err.errors() if e["type"] == "missing"]
+        if missing:
+            raise ConfigError(
+                f"Missing required environment variables: {', '.join(missing)}. "
+                "Copy .env.example to .env and fill them in."
+            ) from err
+        raise ConfigError(f"Invalid secrets: {_describe(err)}") from err

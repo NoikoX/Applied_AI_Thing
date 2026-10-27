@@ -1,0 +1,309 @@
+# Design Decisions — AI Investigation Engine
+
+Status: accepted 2026-10-27. Source of truth for requirements: `docs/applied_ai_investigation_engine_task.md`.
+Each decision lists options, the choice, why, trade-offs, and how I would defend it in the interview.
+
+## 0. Verified facts (checked 2026-10-27)
+
+| Service | Fact | Confidence |
+|---|---|---|
+| Gemini API | Free-tier limits are per account and shown only in AI Studio; the official docs page lists no free numbers. Recommended models for new projects: `gemini-3.5-flash-lite`, `gemini-3.8-flash`. 2.5 models are restricted to previous users. | Model list official. Free limits (~10 RPM / ~500 RPD for Flash-Lite) come only from third-party sites: **unverified**; check `aistudio.google.com/rate-limit`. |
+| Qdrant Cloud | Free cluster: 0.5 vCPU, 1 GB RAM, 4 GB disk, single node. Suspended after 1 week unused, deleted after 4 weeks if not reactivated. | Official docs. |
+| Hugging Face Spaces | Docker/Gradio Spaces now require PRO. Free accounts: static Spaces, or up to 2 Gradio Spaces on ZeroGPU. | Official docs; start date (Jul vs Aug 2026) conflicts between secondary sources. |
+| Render free | Spins down after 15 min idle (~1 min cold start), 750 instance-hours/month, ephemeral filesystem, no persistent disk. | Official docs. RAM **512 MB is unverified** (from a Render article, not the docs) → measured in milestone 1. |
+| Oracle Always Free | Arm A1 reduced to 2 OCPU / 12 GB (was 4 / 24) around June 2026. Card required. | Secondary sources. |
+| OpenAI | `text-embedding-3-small` $0.02 / 1M tokens; `gpt-5-nano` $0.05 in / $0.40 out; `gpt-5-mini` $0.25 / $2.00. | Official pricing page. |
+
+All model names below are **config values**, not code. They may change; `config/config.yaml` is the only place they live.
+
+---
+
+## D1. Hosting & deployment architecture
+
+| Option | Pros | Cons |
+|---|---|---|
+| **Render free, one Docker container: FastAPI + Gradio mounted (`gr.mount_gradio_app`)** | No card, public URL, one process serves REST API and UI | ~512 MB RAM (unverified), cold starts, ephemeral disk |
+| Oracle Always Free VM | 12 GB RAM, never sleeps, real disk | Card required, I operate the VM (TLS, updates, Docker) |
+| HF Spaces Docker | Previously the default for ML demos | No longer free |
+| Streamlit Cloud UI + Render API | More RAM for UI | Two hosts, two sleep policies |
+
+**Chosen:** Render free. **Fallback:** Oracle Always Free if milestone-1 memory measurement fails (target: peak RSS < 400 MB under a query).
+
+**Why:** With OpenAI embeddings, the server only holds BM25 tokenization, a small ONNX cross-encoder, and the app — no PyTorch. All state lives in Qdrant Cloud, so the ephemeral disk does not matter.
+
+**Architecture:**
+```
+Browser ──> Render container
+              ├─ FastAPI  (/ask, /documents CRUD, /health)
+              ├─ Gradio UI mounted at /
+              ├─ fastembed: Qdrant/bm25 (sparse), MiniLM cross-encoder (ONNX)
+              └─ LLMGateway ──> Gemini (primary) / OpenAI (fallback, judge)
+                     │                └─> OpenAI embeddings (query + ingest)
+                     └─> Qdrant Cloud (chunks collection + documents registry)
+GitHub Actions: CI (offline tests) · daily keep-alive /health · manual live eval
+```
+
+**Keep-alive:** a daily GitHub Actions cron calls `/health`, which runs a real Qdrant query. This prevents the 1-week Qdrant pause. I do not keep Render awake artificially; the cold start is documented. (GitHub disables scheduled workflows in inactive repos after a while — not re-verified; noted in README.)
+
+**Secrets:** `.env` locally (gitignored), `.env.example` committed with empty values, Render environment variables in production, GitHub Secrets for the live-eval workflow. Settings are loaded with `pydantic-settings`; the app fails fast if a required key is missing.
+
+**Demo protection:**
+- `slowapi` per-IP limits (e.g. 5 `/ask` per minute, 30 per day).
+- A global daily LLM-call budget; when exhausted, `/ask` returns a clear "demo quota reached" message.
+- Answer cache for repeated questions.
+- Visitor uploads: max 5 MB, tagged `source=upload`; visitors may delete only uploads. Updating/deleting corpus documents requires an `ADMIN_TOKEN` header.
+
+**Trade-offs:** cold starts hurt the first impression; a single small instance means modest latency (rerank on ~0.5 vCPU).
+
+**Interview defense:** "The constraint was $0 and persistence. I pushed all state into Qdrant Cloud so the app container is stateless and can restart anywhere. I chose OpenAI embeddings partly to keep PyTorch out of a 512 MB container, measured memory before committing, and had Oracle as a pre-planned fallback."
+
+---
+
+## D2. LLM layer: one interface, fallback, 429s, caching, cost logging
+
+| Option | Pros | Cons |
+|---|---|---|
+| **Own `LLMGateway` over LangChain chat models** (`langchain-google-genai`, `langchain-openai`) | Cross-cutting policy (cache, retry, fallback, cost) written by me in one place; LangChain gives uniform tool calling (`bind_tools`) and structured output (`with_structured_output`); plays well with LangGraph | One more abstraction layer |
+| LiteLLM | One API for many providers | I'd be defending its retry/fallback behaviour, not mine |
+| Raw provider SDKs | Fully transparent | Tool calling and structured output written twice |
+
+**Chosen:** own gateway over LangChain chat models.
+
+**Roles in config:** `planner`, `answer`, `grader` → Gemini (`gemini-3.5-flash-lite`); `fallback` → `gpt-5-nano`; `judge` (eval only) → OpenAI (`gpt-5-mini` candidate).
+
+**Call path:** `invoke(role, messages, schema=None, tools=None)`
+1. Cache lookup — SQLite table, key = SHA-256 of (provider, model, messages, params, schema version). Temperature 0. Makes evaluation repeatable and cheap to re-run.
+2. Client-side rate limiter (token bucket per model, RPM from config).
+3. Call primary. On 429/5xx/timeout: exponential backoff with jitter (`tenacity`), honouring the provider's retry delay when given; max N attempts.
+4. Persistent failure → fallback provider. Response records which provider answered.
+5. Log one JSONL line per call: role, provider, model, input/output tokens, latency, cost (from `config/pricing.yaml`), cache hit.
+6. Typed errors (`LLMQuotaExceeded`, `LLMUnavailable`, `LLMBadOutput`) so the API returns a clean message instead of a stack trace.
+
+**Trade-offs:** a fallback model behaves differently → evaluation records the answering provider and fallback runs are reported separately.
+
+**Interview defense:** "Free tiers fail with 429s, so quota handling is a first-class concern: limit before calling, back off when told, fall back when stuck, and cache so evaluation never pays twice. Every call is logged with tokens and cost, which is how I report LLM costs."
+
+---
+
+## D3. Vector database & hybrid search
+
+| Option | Hybrid approach | Cons |
+|---|---|---|
+| **Qdrant Cloud, named dense + sparse vectors** | Dense = OpenAI; sparse = BM25 (`Qdrant/bm25` via fastembed, IDF modifier on server). Two separate queries, **fusion written by me in Python** | 1 GB RAM free tier |
+| Neon Postgres + pgvector + tsvector | Familiar SQL | Weaker keyword ranking than BM25 |
+| Chroma + in-memory `rank_bm25` | Simple | BM25 index rebuilt on every restart |
+
+**Chosen:** Qdrant Cloud. I deliberately do **not** use Qdrant's built-in fusion.
+
+**Fusion methods (hand-written, both evaluated):**
+- **RRF** (reciprocal rank fusion): `score(d) = Σ_lists 1 / (k + rank(d))`, k = 60. Uses ranks only, so no score calibration between dense cosine and BM25 is needed.
+- **Weighted score fusion:** min-max normalize each list, then `α·dense + (1−α)·sparse`.
+
+**Experiments** run against local Qdrant (`QdrantClient(path=...)`, in-process); only the winning configuration is deployed to Qdrant Cloud.
+
+**RAM estimate:** 30k × 1536 floats × 4 B ≈ 184 MB for paragraph chunks; sentence windows roughly double that. Fits one configuration in 1 GB.
+
+**Interview defense:** "Dense search catches paraphrases; BM25 catches exact names and numbers, which HotpotQA is full of. RRF combines them without needing comparable scores. I wrote the fusion myself and compared it to weighted fusion."
+
+---
+
+## D4. Embeddings & reranker
+
+| Option | Notes |
+|---|---|
+| **`text-embedding-3-small` (OpenAI)** | No local model RAM, fast batched ingest, ~$0.08 for the corpus; supports a `dimensions` parameter |
+| `BAAI/bge-small-en-v1.5` (local, fastembed ONNX) | Free, 384-d, 67 MB; needs a query prefix (fastembed handles it) |
+| `gemini-embedding-001` | Free but daily request limits make full ingest slow |
+
+**Chosen:** `text-embedding-3-small` in production. **Comparison (bonus):** `bge-small-en-v1.5` evaluated **offline only** against the same retrieval test set.
+
+**Reranker:** cross-encoder `Xenova/ms-marco-MiniLM-L-6-v2` via fastembed (ONNX, ~80 MB). A cross-encoder reads (query, passage) together → more accurate than vector similarity, but too slow for more than ~30 candidates, so it only rescores the fused top 30.
+
+**Trade-offs:** every query depends on OpenAI. Mitigation: retry, then degrade to BM25-only search with a visible warning. Changing embedding models requires re-indexing; model name and dimension are stored in collection metadata and checked at startup.
+
+**Library roles:** `openai` — embeddings API; `fastembed` — ONNX runtime for BM25 tokenization and the cross-encoder, no PyTorch.
+
+**Interview defense:** "API embeddings removed the heaviest dependency from a tiny server. I didn't just trust them: I compared them to an open local model on the same test set and report both."
+
+---
+
+## D5. Custom ranking component (hand-written)
+
+**Coverage-aware selection** — a greedy extension of MMR (maximal marginal relevance) for multi-hop questions:
+
+1. Hybrid fusion (D3) → top 30 candidates.
+2. Cross-encoder score `ce` (normalized 0–1).
+3. Greedy selection: repeatedly pick the candidate maximizing
+   `w_ce·ce + w_rrf·rrf + w_cov·covers_new_subquery − λ·max_cos(candidate, selected) − β·[source already has 2 selected chunks]`
+   until K chunks are selected or the best score falls below `τ`.
+
+- `covers_new_subquery`: 1 if the candidate is among the top results for a sub-question not yet covered by selected chunks.
+- The stop condition (`best score < τ`) is also an input to the insufficient-evidence decision (D9).
+
+**Why:** bridge questions need two *different* paragraphs. Pure relevance ranking tends to return near-duplicates of the first hop.
+
+**Tuning:** weights tuned on a dev split only (D7); the reported test split is never used for tuning. Start with λ and `w_cov` only; ablation table shows each term's contribution.
+
+**Options rejected:** plain cross-encoder top-K (no diversity, no hop coverage); learned-to-rank (needs training data and is harder to explain).
+
+**Interview defense:** "I can derive every term. Relevance comes from the cross-encoder and fusion, diversity from MMR's redundancy penalty, and the coverage bonus is specific to multi-hop: it rewards evidence for the part of the question not yet answered. The ablation shows it earns its place."
+
+---
+
+## D6. Chunking
+
+| Option | Unit | Role |
+|---|---|---|
+| **A. Paragraph = one chunk** | HotpotQA paragraph with title | Baseline |
+| **B. Sentence window: 3 sentences, stride 2** | Overlapping sentence groups | Finer evidence; enables sentence-level evidence recall (HotpotQA marks supporting sentences) |
+| C. Recursive 256-token splitter with overlap (LangChain `RecursiveCharacterTextSplitter`) | Fixed size | Used for uploaded long documents (PDF/DOCX/HTML) |
+
+**Chosen:** compare **A vs B** on the dataset (the required comparison); C for uploads.
+
+**Trade-offs:** B doubles the point count and can split a fact across windows (overlap mitigates). A keeps context but dilutes the embedding for long paragraphs.
+
+**Interview defense:** "HotpotQA's sentence-level gold labels let me measure what chunking actually changes: whether the supporting sentence is retrieved, not just the right article."
+
+---
+
+## D7. Dataset, sampling & reproducibility
+
+| Option | Size |
+|---|---|
+| **HotpotQA distractor, train split, 3,000 questions, seed 42** | ~25–30k unique paragraphs |
+| 6,000 questions | ~55–60k paragraphs (meets 50k at paragraph level) |
+| Full validation split (7,405) | ~60–70k paragraphs |
+
+**Chosen:** 3,000 questions, seed 42 (my decision). `n_questions` is a config parameter.
+
+**Known gap:** the task asks for ≥ 50,000 documents or independent text records. At paragraph level this corpus is below that. Under chunking B the chunk count is expected to be ≥ 50k, which is the argument I will make; if a reviewer requires paragraph-level, raising `n_questions` to 6,000 is a config change plus ~$0.10 of embeddings.
+
+**Build script outputs:**
+- `data/corpus.jsonl` — unique paragraphs (dedup by normalized title+text hash), with source question IDs kept for traceability.
+- `data/gold.jsonl` — 3,000 questions, answers, gold paragraph titles, supporting sentence indices, type (bridge/comparison), level. Never indexed.
+- `data/manifest.json` — dataset name, HF revision, split, seed, counts, SHA-256 of each output file. Data files are gitignored; the manifest is committed.
+
+**Splits:** the 3,000 questions are split (seeded) into **dev** (tuning) and **test** (reported retrieval metrics).
+
+**Synthetic cases (later milestone):**
+- *Unanswerable:* (a) take a real question and delete one gold paragraph via the document API — truly unanswerable, and exercises delete; (b) questions about entities absent from the corpus.
+- *Contradictory:* copy a gold paragraph, change one fact (date/number/name), save as PDF, DOCX or Markdown with `synthetic=true`. Expected: system flags the conflict and cites both sources. Also demonstrates ≥ 3 file formats.
+- Danluu post-mortems may be added later for an incident-investigation flavour.
+
+**Interview defense:** "Fixed seed, pinned dataset revision, hashed outputs: anyone can rebuild the exact corpus. Gold answers are kept out of the index so evaluation can't leak."
+
+---
+
+## D8. Document processing, registry & dedup
+
+**Formats:** PDF (`pypdf`), DOCX (`python-docx`), HTML (`beautifulsoup4`), Markdown/TXT, JSONL (corpus). Extracted metadata: title, source, format, page (PDF), author/created date where present, content hash, version, ingest time.
+
+| Registry option | Pros | Cons |
+|---|---|---|
+| **Payload-only `documents` collection in Qdrant** | One service; survives restarts | No joins |
+| Neon / Supabase Postgres | Relational | Second free service to keep alive |
+| SQLite on host | Simplest | Lost on restart (ephemeral disk) |
+
+**Chosen:** registry in Qdrant.
+
+- **IDs:** `doc_id = UUID5(source)`, `chunk_id = UUID5(doc_id, chunk_index)` → re-ingesting is idempotent.
+- **Add:** hash check → chunk → embed → upsert chunks + registry entry.
+- **Update:** delete chunks by `doc_id` filter, upsert new ones, increment `version`.
+- **Delete:** remove chunks and registry entry.
+- **Dedup (hand-written):** exact — SHA-256 of normalized text, checked before indexing; near-duplicate — if a new chunk's top-1 dense neighbour has cosine > 0.95, store it as `duplicate_of` instead of indexing it again. Counts reported at ingest.
+
+**Interview defense:** "Deterministic IDs make every write idempotent, so a crashed ingest can simply be rerun. Dedup is two-tier: cheap exact hashing first, an embedding check for near-copies second."
+
+---
+
+## D9. Agentic RAG with LangGraph
+
+| Option | Notes |
+|---|---|
+| **Fixed graph: plan → retrieve (tool call) → grade → (loop ≤ 2) → contradiction check → answer → verify** | Every step inspectable and testable |
+| Free-form ReAct agent | Less code, unpredictable cost, harder to explain |
+| Single-shot RAG | Kept as **baseline configuration** for evaluation |
+
+**Chosen:** fixed graph, evaluated against single-shot. State is a `TypedDict`; each node is a plain function `(state) -> partial update`.
+
+| Node | What it does | Who decides |
+|---|---|---|
+| `plan` | Structured output (Pydantic): question type (single / bridge / comparison), sub-questions | LLM |
+| `retrieve` | LLM calls the tool `search_documents(query, k)` via `bind_tools`; tool runs hybrid search + D5 ranking. For bridge questions, hop-2 query includes the entity found in hop 1 | LLM chooses queries; search is my code |
+| `grade` | Per sub-question: supported? what is missing? Missing → back to `retrieve` with refined query (max 2 loops) | LLM, loop limit in code |
+| `contradiction` | LLM extracts claims `(subject, attribute, value, chunk_id)`; **Python** normalizes and groups by (subject, attribute) and flags differing values | Hand-written |
+| `answer` | Structured output: `answer`, `claims[{text, chunk_ids}]`, `status ∈ {answered, insufficient_evidence, contradictory}` | LLM |
+| `verify` | **Python:** every cited ID exists in retrieved set; refuse if grader says missing, top rerank score < threshold, D5 stopped early, or a key claim lacks a citation | Hand-written |
+
+**Library roles:** `langgraph` — state machine with conditional edges and loop control; `langchain-core` — messages, tool schema, structured output; `pydantic` — output schemas.
+
+**Trade-offs:** ~4–6 LLM calls per question vs 1 for baseline → cost and latency measured and reported per configuration.
+
+**Interview defense:** "The LLM does language tasks — planning, query writing, claim extraction. Decisions that must be reliable — whether citations are real, whether evidence is sufficient, whether claims conflict — are deterministic Python I can unit-test."
+
+---
+
+## D10. Evaluation (centerpiece)
+
+**Layer 1 — retrieval at scale (no LLM, near-free):** ~500 test-split questions.
+- **Recall@K** — share of gold paragraphs in top K (K = 5, 10, 20).
+- **Full-support@K** — both gold paragraphs in top K (what multi-hop actually needs).
+- **MRR** — mean of 1 / rank of the first gold paragraph.
+- **Sentence-level evidence recall** — supporting sentences retrieved (chunking A vs B).
+- Grid: dense / BM25 / hybrid-RRF / hybrid-weighted / + rerank / + coverage ranking × chunking A/B × embeddings OpenAI/bge.
+
+**Layer 2 — golden set (≥ 45 questions, every one checked by me):**
+
+| Category | Count |
+|---|---|
+| Simple (single paragraph) | 10 |
+| Multi-hop bridge | 10 |
+| Comparison (links two documents) | 8 |
+| Unanswerable | 7 |
+| Contradictory | 6 |
+| Prompt injection (optional bonus) | 4 |
+
+Metrics (all hand-written):
+- **Answer correctness:** HotpotQA-style normalized exact match and token F1; plus LLM-judge semantic correctness.
+- **Citation precision / recall** against gold paragraphs.
+- **Grounding (hallucination check):** per claim, judge decides whether the cited chunk supports it → supported-claim rate.
+- **Refusal precision / recall** on unanswerable; **contradiction detection rate** on contradictory.
+- Cost, tokens, latency per question.
+
+**Configurations compared:** single-shot vs agentic; Gemini vs `gpt-5-nano` as generator (bonus); retrieval grid above.
+
+**Judge bias:** an OpenAI judge may favour the OpenAI generator. Mitigations: EM/F1 and citation metrics are primary; judge is secondary; I hand-check 20 judgments and report agreement.
+
+**Prompt regression tests:**
+
+| Option | Notes |
+|---|---|
+| **Offline in CI:** rendered-prompt snapshots, schema/parsing tests, replay of recorded LLM responses through the pipeline with metric thresholds | Deterministic, no secrets in CI |
+| Live LLM calls in CI | Flaky, costly |
+
+**Chosen:** offline suite on every push; live 10-question suite as a manual `workflow_dispatch` workflow using a repository secret.
+
+**Interview defense:** "Two layers: cheap retrieval metrics on hundreds of questions for statistical signal, and a hand-checked golden set for behaviours a dataset can't test — refusing and flagging contradictions. Every metric is my own code with unit tests on hand-computed examples."
+
+---
+
+## D11. UI
+
+| Option | Notes |
+|---|---|
+| **Gradio mounted inside FastAPI** | One process; tabs for Ask (answer + citations + evidence), Documents (upload/list/update/delete), Status |
+| Streamlit | Separate process/host; reruns script per interaction |
+| FastAPI + HTMX templates | Most control, most UI code |
+
+**Chosen:** Gradio in FastAPI. The UI calls the same service layer as the REST API, so there is one code path to test.
+
+---
+
+## Hand-written by me (not delegated to libraries)
+
+Hybrid fusion (RRF, weighted) · coverage-aware ranking · dedup · contradiction grouping · sufficiency/refusal rules · citation verification · LLM gateway policy (cache, limiter, retry, fallback, cost) · all evaluation metrics.
+
+## Defaults I chose where questions were left open
+
+- Visitor uploads allowed but sandboxed; corpus changes admin-only.
+- Bonus scope: agentic RAG, embedding comparison, LLM comparison, caching/cost logging. Streaming and prompt-injection tests only if time allows.

@@ -1,0 +1,32 @@
+# Non-secret configuration. Model names live here only (see docs/DECISIONS.md).
+
+llm:
+  temperature: 0.0
+  planner:
+    provider: gemini
+    name: gemini-3.5-flash-lite
+  answer:
+    provider: gemini
+    name: gemini-3.5-flash-lite
+  grader:
+    provider: gemini
+    name: gemini-3.5-flash-lite
+  fallback:
+    provider: openai
+    name: gpt-5-nano
+  judge:  # evaluation only
+    provider: openai
+    name: gpt-5-mini
+
+embeddings:
+  provider: openai
+  name: text-embedding-3-small
+  dimensions: 1536
+
+dataset:
+  hf_name: hotpotqa/hotpot_qa
+  hf_config: distractor
+  split: train
+  n_questions: 3000
+  seed: 42
+  dev_fraction: 0.5
