@@ -262,6 +262,15 @@ On this tiny, easy index neither reranking nor coverage helped, and without sub-
 
 **Chosen:** fixed graph, evaluated against single-shot. State is a `TypedDict`; each node is a plain function `(state) -> partial update`.
 
+**Baseline as built (M8):** retrieve once → sources labelled S1..Sk → one structured-output call (`status`, `answer`, `claims[{text, sources}]`) → hand-written citation check (labels must be ones that were shown; fabricated labels dropped) → hand-written refusal rules (`rag/sufficiency.py`): refuse *before* the LLM if nothing was retrieved or the best reranker score is below `rag.min_relevance` (saves a request), and *after* it if the model says insufficient or cites no valid source (the unsupported answer is then hidden). Search or LLM failures return status `unavailable`, never an exception.
+
+Live check on 6 dev questions + 2 unanswerable ones (not an evaluation, just a look):
+- 4 / 6 correct with correct citations.
+- 1 false "contradictory" (NBA question): the model invented a disagreement between sources.
+- 1 bridge miss (*Chikku Bukku* → *The Classic* → director): retrieval did not find the second-hop paragraph; the model said so in its answer text but labelled the status "answered". Exactly the M6 failure mode, and a status/answer inconsistency the agent's grader step should catch.
+- Both unanswerable questions refused: one by the model (World Cup 2030; the reranker still scored a World Cup paragraph 0.90, so the score threshold alone would not have caught it), one by code before any LLM call (best score 0.001).
+- Retrieval 1.5–4 s per question on my laptop (reranker on CPU + query embedding); LLM 0.8–2 s.
+
 | Node | What it does | Who decides |
 |---|---|---|
 | `plan` | Structured output (Pydantic): question type (single / bridge / comparison), sub-questions | LLM |

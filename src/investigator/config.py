@@ -102,6 +102,10 @@ class RetrievalConfig(BaseModel):
     coverage: CoverageConfig
 
 
+class RAGConfig(BaseModel):
+    min_relevance: float
+
+
 class LocalModelsConfig(BaseModel):
     cache_dir: str
     threads: int | None  # None = all CPU cores (offline evaluation)
@@ -140,6 +144,7 @@ class AppConfig(BaseModel):
     embeddings: EmbeddingConfig
     index: IndexConfig
     retrieval: RetrievalConfig
+    rag: RAGConfig
     local_models: LocalModelsConfig
     chunking: ChunkingConfig
     dataset: DatasetConfig

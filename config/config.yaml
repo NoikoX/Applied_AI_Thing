@@ -53,6 +53,11 @@ retrieval:  # every switch here is an evaluation configuration (see docs/DECISIO
     covers_top_n: 5  # a chunk "covers" a sub-question if it ranks this high for it
     min_score: 0.0  # stop selecting below this (feeds the insufficient-evidence check)
 
+rag:
+  # Refuse without asking the LLM if the best reranker score (0..1) is below this.
+  # Starting value; to be tuned on dev / golden questions (M10-M11).
+  min_relevance: 0.05
+
 local_models:  # ONNX models run in-process via fastembed (no PyTorch)
   cache_dir: .cache/models  # relative to project root; filled at Docker build time
   threads: 1  # Render free has ~0.5 vCPU; more threads only add memory
