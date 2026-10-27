@@ -34,6 +34,6 @@ dataset:
   hf_config: distractor
   hf_revision: 1908d6afbbead072334abe2965f91bd2709910ab  # pinned dataset commit
   split: train
-  n_questions: 3000
+  n_questions: 5000
   seed: 42
   dev_fraction: 0.5

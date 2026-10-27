@@ -23,7 +23,7 @@ def test_project_config_loads():
     assert cfg.llm.fallback.provider == "openai"
     assert cfg.embeddings.name
     assert cfg.dataset.seed == 42
-    assert cfg.dataset.n_questions == 3000
+    assert cfg.dataset.n_questions == 5000
 
 
 def test_missing_config_file_raises(tmp_path):

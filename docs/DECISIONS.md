@@ -178,11 +178,11 @@ GitHub Actions: CI (offline tests) · daily keep-alive /health/deep · manual li
 | 6,000 questions | ~55–60k paragraphs (meets 50k at paragraph level) |
 | Full validation split (7,405) | ~60–70k paragraphs |
 
-**Chosen:** 3,000 questions, seed 42 (my decision). `n_questions` is a config parameter.
+**Chosen:** 5,000 questions from the train split (90,447), seed 42 (my decision; first built with 3,000, then raised). `n_questions` is a config parameter.
 
-**Built (M2, 2026-10-27, dataset revision pinned in config):** 3,000 questions (2,401 bridge, 599 comparison; 1,500 dev / 1,500 test) → 29,794 paragraphs seen → **28,322 unique** after removing 1,472 exact duplicates. Average paragraph: 4.06 sentences, 87 words. Rebuilding gives byte-identical files (hashes in `data/manifest.json`).
+**Built (M2, 2026-10-27, dataset revision pinned in config):** 5,000 questions (4,032 bridge, 968 comparison; 2,500 dev / 2,500 test) → 49,653 paragraphs seen → **46,172 unique** after removing 3,481 exact duplicates; 1 out-of-range supporting-sentence label dropped. Average paragraph: 4.03 sentences, 87 words. Rebuilding gives byte-identical files (hashes in `data/manifest.json`).
 
-**Known gap:** the task asks for ≥ 50,000 documents or independent text records. At paragraph level this corpus is below that. Under chunking B (3-sentence windows, stride 2) it yields **52,439 chunks**, which is the argument I will make; if a reviewer requires paragraph-level, raising `n_questions` to 6,000 is a config change plus ~$0.10 of embeddings.
+**Against the ≥ 50,000 requirement:** 46,172 unique paragraphs, and **84,778 chunks** under chunking B (3-sentence windows, stride 2). If a reviewer counts unique paragraphs only, about 5,500 questions would cross 50k; that is a config change plus a few cents of embeddings.
 
 **Build script outputs:**
 - `data/corpus.jsonl` — unique paragraphs (dedup by normalized title+text hash), with source question IDs kept for traceability.
