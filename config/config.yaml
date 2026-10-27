@@ -32,6 +32,7 @@ local_models:  # ONNX models run in-process via fastembed (no PyTorch)
 dataset:
   hf_name: hotpotqa/hotpot_qa
   hf_config: distractor
+  hf_revision: 1908d6afbbead072334abe2965f91bd2709910ab  # pinned dataset commit
   split: train
   n_questions: 3000
   seed: 42

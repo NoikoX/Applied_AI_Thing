@@ -62,6 +62,7 @@ class LocalModelsConfig(BaseModel):
 class DatasetConfig(BaseModel):
     hf_name: str
     hf_config: str
+    hf_revision: str
     split: str
     n_questions: int
     seed: int

@@ -1,0 +1,21 @@
+{
+  "dataset": "hotpotqa/hotpot_qa",
+  "config": "distractor",
+  "revision": "1908d6afbbead072334abe2965f91bd2709910ab",
+  "split": "train",
+  "split_size": 90447,
+  "seed": 42,
+  "dev_fraction": 0.5,
+  "python_version": "3.12.1",
+  "n_questions": 3000,
+  "n_dev": 1500,
+  "n_test": 1500,
+  "n_paragraphs_seen": 29794,
+  "n_unique_docs": 28322,
+  "n_duplicates_removed": 1472,
+  "n_invalid_supporting_facts_dropped": 0,
+  "sha256": {
+    "corpus.jsonl": "a9a7662a07c707399bd21adefffff5689ed28a1c69023b4cdcade291167d6a70",
+    "gold.jsonl": "28e08c396c2f1372780c01ba43cae711c5e0e8bfeeae61d3a936f2533f179b6c"
+  }
+}
