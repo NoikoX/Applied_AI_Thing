@@ -64,15 +64,18 @@ class DocumentIndex:
         dense: DenseEmbedder,
         sparse: SparseEncoder,
         near_duplicate_threshold: float,
+        index_name: str | None = None,
     ):
+        """index_name names the collections; it defaults to the strategy. The evaluation
+        uses names like "paragraph__bge" to keep one index per embedding model."""
         self.client = client
         self.strategy = strategy
         self.chunking = chunking
         self.dense = dense
         self.sparse = sparse
         self.threshold = near_duplicate_threshold
-        self.chunks = chunks_collection(strategy)
-        self.registry = registry_collection(strategy)
+        self.chunks = chunks_collection(index_name or strategy)
+        self.registry = registry_collection(index_name or strategy)
 
     # ---- reads -------------------------------------------------------------
 

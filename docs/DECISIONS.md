@@ -119,7 +119,7 @@ GitHub Actions: CI (offline tests) · daily keep-alive /health/deep · manual li
 | `BAAI/bge-small-en-v1.5` (local, fastembed ONNX) | Free, 384-d, 67 MB; needs a query prefix (fastembed handles it) |
 | `gemini-embedding-001` | Free but daily request limits make full ingest slow |
 
-**Chosen:** `text-embedding-3-small` in production. **Comparison (bonus):** `bge-small-en-v1.5` evaluated **offline only** against the same retrieval test set.
+**Chosen:** `text-embedding-3-small` in production. **Comparison (bonus):** originally `bge-small-en-v1.5` offline; changed in M6 to `text-embedding-3-large` at the same 1,536 dimensions, because bge ran at ~11–15 texts/s on my laptop CPU (~50–70 min for the corpus) while the API model indexed in ~18 min for ~$0.77. Same vector size means only the model differs. Results: see "M6 retrieval results" under D10.
 
 **Reranker:** cross-encoder `Xenova/ms-marco-MiniLM-L-6-v2` via fastembed (ONNX, ~80 MB). A cross-encoder reads (query, passage) together → more accurate than vector similarity, but too slow for more than ~30 candidates, so it only rescores the fused top 30.
 
@@ -308,6 +308,28 @@ Metrics (all hand-written):
 **Chosen:** offline suite on every push; live 10-question suite as a manual `workflow_dispatch` workflow using a repository secret.
 
 **Interview defense:** "Two layers: cheap retrieval metrics on hundreds of questions for statistical signal, and a hand-checked golden set for behaviours a dataset can't test — refusing and flagging contradictions. Every metric is my own code with unit tests on hand-computed examples."
+
+### M6 retrieval results (single-pass retrieval, no sub-questions)
+
+Full index (46,172 paragraphs; 84,778 sentence windows) in a local Qdrant 1.20 (Docker), tuned on 200 dev questions, reported on 500 test questions. Metrics over the top-K chunks. Tables and per-question rows: `eval/results/retrieval_*`. "Full@K" = both gold paragraphs in the top K.
+
+| Config (test, 500) | Recall@5 | Full@5 | Full@10 | MRR |
+|---|---|---|---|---|
+| BM25 | 0.728 | 0.502 | 0.664 | 0.874 |
+| dense (small) | 0.787 | 0.608 | 0.726 | 0.908 |
+| hybrid RRF (small) | 0.797 | 0.628 | 0.750 | 0.911 |
+| hybrid weighted α=0.5 (small) | 0.822 | 0.668 | 0.762 | 0.923 |
+| hybrid RRF + rerank (small) | 0.809 | 0.632 | 0.756 | 0.936 |
+| dense (large) | 0.853 | 0.722 | 0.814 | 0.925 |
+| **hybrid weighted (large)** | 0.845 | 0.712 | **0.834** | **0.942** |
+
+Findings:
+- **Embeddings:** `text-embedding-3-large` beats `-small` by ~5 points Recall@5 and ~10 points Full@5, on dev and test alike. Best on dev: large + weighted fusion (Full@5 0.720, Full@10 0.820, MRR 0.962). Same 1,536 dimensions, so the same Qdrant RAM; cost $0.13 vs $0.02 per 1M tokens, i.e. ~$0.77 vs ~$0.12 to index the corpus once, queries negligible.
+- **Fusion:** weighted (α = 0.5, tuned on dev over 0.3–0.9) beats RRF. RRF lets BM25 pull in keyword matches that dense search correctly ranked low; this hurts comparison questions most (dense 0.946 → RRF 0.848 Full@5).
+- **Reranker:** raises MRR (0.911 → 0.936) and Full@2, but not Full@5/10. It costs ~58 ms per pair on my laptop CPU (~1.7 s per question for 30 candidates); Render will be slower.
+- **Coverage selection:** with λ = 0 and no sub-questions it is identical to top-k (the coverage bonus needs sub-questions; paragraph chunks never hit the 2-per-document cap). Dev tuning: λ 0.0 > 0.15 > 0.3, because a question's two gold paragraphs are often similar to each other. To be re-evaluated with the agent's sub-questions.
+- **Chunking:** A (paragraph) beats B (sentence windows) on every metric (Full@5 0.632 vs 0.598 with rerank), with B also giving less context (600 vs 869 words in the top 10). HotpotQA paragraphs are already short (median 77 words), so splitting them only separates facts from their context. Caveat: compared at equal chunk count, not equal word budget.
+- **Failure analysis** (hybrid weighted, small): 166 / 500 questions miss a gold paragraph in the top 5; 159 are bridge questions. In **143 of the 166 (86%) the missed paragraph is the bridge entity, which the question never names** (e.g. "the philosopher whose philosophy Harry Jaffa developed…" needs *Leo Strauss*). Single-pass retrieval cannot find it; a second retrieval hop that uses what the first paragraph says can. This is the main motivation for the agent (D9).
 
 ---
 

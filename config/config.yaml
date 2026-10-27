@@ -21,6 +21,8 @@ llm:
 embeddings:
   provider: openai
   name: text-embedding-3-small
+  # Offline embedding comparison only: same vector size, so only the model differs.
+  comparison_name: text-embedding-3-large
   dimensions: 1536
   batch_size: 256  # texts per API request
   max_retries: 5  # the OpenAI SDK retries 429/5xx/timeouts with exponential backoff
@@ -43,7 +45,10 @@ retrieval:  # every switch here is an evaluation configuration (see docs/DECISIO
     w_ce: 0.6  # cross-encoder relevance
     w_rrf: 0.4  # fused hybrid score
     w_cov: 0.3  # bonus for covering a sub-question not yet covered
-    redundancy_lambda: 0.3  # penalty x max cosine similarity to chunks already selected
+    # Penalty x max cosine similarity to chunks already selected. Dev tuning (M6, no
+    # sub-questions): 0.0 > 0.15 > 0.3, because the two gold paragraphs of a question are
+    # often similar to each other. Revisit with the agent's sub-questions (M11).
+    redundancy_lambda: 0.0
     max_chunks_per_doc: 2
     covers_top_n: 5  # a chunk "covers" a sub-question if it ranks this high for it
     min_score: 0.0  # stop selecting below this (feeds the insufficient-evidence check)

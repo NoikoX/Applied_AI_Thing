@@ -43,14 +43,18 @@ def registry_point_id(doc_id: str) -> str:
 
 
 def ensure_collections(
-    client: QdrantClient, strategy: str, embedding_model: str, dimensions: int
+    client: QdrantClient,
+    strategy: str,
+    embedding_model: str,
+    dimensions: int,
+    index_name: str | None = None,
 ) -> None:
     """Create both collections if missing; refuse to reuse one built with another model.
 
     Vectors from different embedding models are not comparable, so silently
-    mixing them would make search results meaningless.
+    mixing them would make search results meaningless. index_name defaults to the strategy.
     """
-    chunks = chunks_collection(strategy)
+    chunks = chunks_collection(index_name or strategy)
     expected = {"embedding_model": embedding_model, "dimensions": dimensions}
     if client.collection_exists(chunks):
         meta = client.get_collection(chunks).config.metadata or {}
@@ -71,7 +75,7 @@ def ensure_collections(
         client.create_payload_index(chunks, "doc_id", models.PayloadSchemaType.KEYWORD)
         client.create_payload_index(chunks, "version", models.PayloadSchemaType.INTEGER)
 
-    registry = registry_collection(strategy)
+    registry = registry_collection(index_name or strategy)
     if not client.collection_exists(registry):
         client.create_collection(registry, vectors_config={})
         client.create_payload_index(registry, "content_hash", models.PayloadSchemaType.KEYWORD)

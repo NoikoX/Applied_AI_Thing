@@ -39,6 +39,9 @@ class HashEmbedder:
             vectors.append([x / norm for x in v])
         return vectors
 
+    def embed_queries(self, queries: list[str]) -> list[list[float]]:
+        return self.embed(queries)
+
 
 class FakeReranker:
     """Relevance = share of query words that appear in the text."""

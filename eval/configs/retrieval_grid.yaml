@@ -1,0 +1,35 @@
+# Retrieval configurations for scripts/run_retrieval_eval.py.
+# Each entry: index (collection base name), embedder ("production" = config embeddings.name,
+# "comparison" = embeddings.comparison_name), and overrides of the `retrieval` section of
+# config/config.yaml. Unlisted settings keep their config values.
+
+stages:  # chunking A + production embeddings: which retrieval stage helps?
+  - {name: dense, index: paragraph, embedder: production, overrides: {mode: dense, rerank: false, selection: topk}}
+  - {name: bm25, index: paragraph, embedder: production, overrides: {mode: sparse, rerank: false, selection: topk}}
+  - {name: hybrid-rrf, index: paragraph, embedder: production, overrides: {mode: hybrid, fusion: rrf, rerank: false, selection: topk}}
+  - {name: hybrid-weighted, index: paragraph, embedder: production, overrides: {mode: hybrid, fusion: weighted, rerank: false, selection: topk}}
+  - {name: hybrid-rrf+rerank, index: paragraph, embedder: production, overrides: {mode: hybrid, fusion: rrf, rerank: true, selection: topk}}
+  - {name: hybrid-rrf+rerank+coverage, index: paragraph, embedder: production, overrides: {mode: hybrid, fusion: rrf, rerank: true, selection: coverage}}
+
+chunking:  # A (paragraph) vs B (sentence window), same retrieval settings
+  - {name: A-dense, index: paragraph, embedder: production, overrides: {mode: dense, rerank: false, selection: topk}}
+  - {name: B-dense, index: sentence_window, embedder: production, overrides: {mode: dense, rerank: false, selection: topk}}
+  - {name: A-hybrid-rrf+rerank, index: paragraph, embedder: production, overrides: {mode: hybrid, rerank: true, selection: topk}}
+  - {name: B-hybrid-rrf+rerank, index: sentence_window, embedder: production, overrides: {mode: hybrid, rerank: true, selection: topk}}
+
+embeddings:  # text-embedding-3-small vs text-embedding-3-large, both 1536 dims, chunking A
+  - {name: small-dense, index: paragraph, embedder: production, overrides: {mode: dense, rerank: false, selection: topk}}
+  - {name: large-dense, index: paragraph__comparison, embedder: comparison, overrides: {mode: dense, rerank: false, selection: topk}}
+  - {name: small-hybrid-rrf, index: paragraph, embedder: production, overrides: {mode: hybrid, rerank: false, selection: topk}}
+  - {name: large-hybrid-rrf, index: paragraph__comparison, embedder: comparison, overrides: {mode: hybrid, rerank: false, selection: topk}}
+  - {name: small-hybrid-weighted, index: paragraph, embedder: production, overrides: {mode: hybrid, fusion: weighted, rerank: false, selection: topk}}
+  - {name: large-hybrid-weighted, index: paragraph__comparison, embedder: comparison, overrides: {mode: hybrid, fusion: weighted, rerank: false, selection: topk}}
+
+tuning:  # dev split only: weighted-fusion alpha and the coverage redundancy penalty
+  - {name: weighted-a0.3, index: paragraph, embedder: production, overrides: {mode: hybrid, fusion: weighted, dense_weight: 0.3, rerank: false, selection: topk}}
+  - {name: weighted-a0.5, index: paragraph, embedder: production, overrides: {mode: hybrid, fusion: weighted, dense_weight: 0.5, rerank: false, selection: topk}}
+  - {name: weighted-a0.7, index: paragraph, embedder: production, overrides: {mode: hybrid, fusion: weighted, dense_weight: 0.7, rerank: false, selection: topk}}
+  - {name: weighted-a0.9, index: paragraph, embedder: production, overrides: {mode: hybrid, fusion: weighted, dense_weight: 0.9, rerank: false, selection: topk}}
+  - {name: coverage-l0.0, index: paragraph, embedder: production, overrides: {mode: hybrid, rerank: true, selection: coverage, coverage: {redundancy_lambda: 0.0}}}
+  - {name: coverage-l0.15, index: paragraph, embedder: production, overrides: {mode: hybrid, rerank: true, selection: coverage, coverage: {redundancy_lambda: 0.15}}}
+  - {name: coverage-l0.3, index: paragraph, embedder: production, overrides: {mode: hybrid, rerank: true, selection: coverage, coverage: {redundancy_lambda: 0.3}}}

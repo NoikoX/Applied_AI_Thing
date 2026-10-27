@@ -36,7 +36,7 @@ class HybridRetriever:
     def __init__(
         self,
         client: QdrantClient,
-        strategy: str,
+        index_name: str,
         cfg: RetrievalConfig,
         dense: DenseEmbedder,
         sparse: SparseEncoder,
@@ -45,7 +45,7 @@ class HybridRetriever:
         if cfg.rerank and reranker is None:
             raise ValueError("Config enables reranking but no reranker was given")
         self.client = client
-        self.collection = chunks_collection(strategy)
+        self.collection = chunks_collection(index_name)
         self.cfg = cfg
         self.dense = dense
         self.sparse = sparse
@@ -63,7 +63,9 @@ class HybridRetriever:
             clock = now
 
         queries = [query, *(subqueries or [])]
-        vectors = self.dense.embed(queries) if cfg.mode != "sparse" else [None] * len(queries)
+        vectors = (
+            self.dense.embed_queries(queries) if cfg.mode != "sparse" else [None] * len(queries)
+        )
         lap("embed")
 
         pool: dict[str, Candidate] = {}

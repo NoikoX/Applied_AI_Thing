@@ -1,0 +1,628 @@
+{
+  "meta": {
+    "grid": "tuning",
+    "split": "dev",
+    "n_questions": 200,
+    "date": "2026-10-27T19:19:42+00:00",
+    "git_commit": "1e04657",
+    "rerank_ms_per_pair": 68.3547810499828,
+    "rerank_cache": {
+      "hits": 12000,
+      "misses": 6000
+    },
+    "dataset_manifest": {
+      "dataset": "hotpotqa/hotpot_qa",
+      "config": "distractor",
+      "revision": "1908d6afbbead072334abe2965f91bd2709910ab",
+      "split": "train",
+      "split_size": 90447,
+      "seed": 42,
+      "dev_fraction": 0.5,
+      "python_version": "3.12.1",
+      "n_questions": 5000,
+      "n_dev": 2500,
+      "n_test": 2500,
+      "n_paragraphs_seen": 49653,
+      "n_unique_docs": 46172,
+      "n_duplicates_removed": 3481,
+      "n_invalid_supporting_facts_dropped": 1,
+      "sha256": {
+        "corpus.jsonl": "047fbda139e0c5f880c7c778e4f35a2f224ca37cbd5630d9ad6467584dc07aeb",
+        "gold.jsonl": "0ed199870ef3bc2306c4cd2296132593d9f747f52ff7c98e5e0bf81d9169f3eb"
+      }
+    }
+  },
+  "results": {
+    "weighted-a0.3": {
+      "entry": {
+        "name": "weighted-a0.3",
+        "index": "paragraph",
+        "embedder": "production",
+        "overrides": {
+          "mode": "hybrid",
+          "fusion": "weighted",
+          "dense_weight": 0.3,
+          "rerank": false,
+          "selection": "topk"
+        }
+      },
+      "config": {
+        "mode": "hybrid",
+        "fusion": "weighted",
+        "rrf_k": 60,
+        "dense_weight": 0.3,
+        "candidates_per_list": 50,
+        "rerank": false,
+        "rerank_top_n": 30,
+        "selection": "topk",
+        "final_k": 10,
+        "coverage": {
+          "w_ce": 0.6,
+          "w_rrf": 0.4,
+          "w_cov": 0.3,
+          "redundancy_lambda": 0.3,
+          "max_chunks_per_doc": 2,
+          "covers_top_n": 5,
+          "min_score": 0.0
+        }
+      },
+      "summary": {
+        "all": {
+          "n": 200,
+          "rr": 0.923,
+          "recall@1": 0.4375,
+          "recall@2": 0.6375,
+          "recall@5": 0.8075,
+          "recall@10": 0.87,
+          "full@2": 0.335,
+          "full@5": 0.62,
+          "full@10": 0.745,
+          "sent_recall@5": 0.8115,
+          "sent_recall@10": 0.8733,
+          "context_words@10": 922.82,
+          "latency_ms": 246.8535,
+          "rerank_ms": 0.0015
+        },
+        "bridge": {
+          "n": 159,
+          "rr": 0.927,
+          "recall@1": 0.4434,
+          "recall@2": 0.6132,
+          "recall@5": 0.783,
+          "recall@10": 0.8428,
+          "full@2": 0.2956,
+          "full@5": 0.5723,
+          "full@10": 0.6918,
+          "sent_recall@5": 0.787,
+          "sent_recall@10": 0.847,
+          "context_words@10": 961.0943,
+          "latency_ms": 247.9642,
+          "rerank_ms": 0.0019
+        },
+        "comparison": {
+          "n": 41,
+          "rr": 0.9073,
+          "recall@1": 0.4146,
+          "recall@2": 0.7317,
+          "recall@5": 0.9024,
+          "recall@10": 0.9756,
+          "full@2": 0.4878,
+          "full@5": 0.8049,
+          "full@10": 0.9512,
+          "sent_recall@5": 0.9065,
+          "sent_recall@10": 0.9756,
+          "context_words@10": 774.3902,
+          "latency_ms": 242.5463,
+          "rerank_ms": 0.0
+        }
+      }
+    },
+    "weighted-a0.5": {
+      "entry": {
+        "name": "weighted-a0.5",
+        "index": "paragraph",
+        "embedder": "production",
+        "overrides": {
+          "mode": "hybrid",
+          "fusion": "weighted",
+          "dense_weight": 0.5,
+          "rerank": false,
+          "selection": "topk"
+        }
+      },
+      "config": {
+        "mode": "hybrid",
+        "fusion": "weighted",
+        "rrf_k": 60,
+        "dense_weight": 0.5,
+        "candidates_per_list": 50,
+        "rerank": false,
+        "rerank_top_n": 30,
+        "selection": "topk",
+        "final_k": 10,
+        "coverage": {
+          "w_ce": 0.6,
+          "w_rrf": 0.4,
+          "w_cov": 0.3,
+          "redundancy_lambda": 0.3,
+          "max_chunks_per_doc": 2,
+          "covers_top_n": 5,
+          "min_score": 0.0
+        }
+      },
+      "summary": {
+        "all": {
+          "n": 200,
+          "rr": 0.9342,
+          "recall@1": 0.4425,
+          "recall@2": 0.68,
+          "recall@5": 0.8325,
+          "recall@10": 0.8775,
+          "full@2": 0.405,
+          "full@5": 0.665,
+          "full@10": 0.755,
+          "sent_recall@5": 0.8375,
+          "sent_recall@10": 0.8817,
+          "context_words@10": 897.515,
+          "latency_ms": 33.1145,
+          "rerank_ms": 0.001
+        },
+        "bridge": {
+          "n": 159,
+          "rr": 0.934,
+          "recall@1": 0.4434,
+          "recall@2": 0.6478,
+          "recall@5": 0.8019,
+          "recall@10": 0.8491,
+          "full@2": 0.3459,
+          "full@5": 0.6038,
+          "full@10": 0.6981,
+          "sent_recall@5": 0.8071,
+          "sent_recall@10": 0.8543,
+          "context_words@10": 930.1447,
+          "latency_ms": 33.2031,
+          "rerank_ms": 0.0013
+        },
+        "comparison": {
+          "n": 41,
+          "rr": 0.935,
+          "recall@1": 0.439,
+          "recall@2": 0.8049,
+          "recall@5": 0.9512,
+          "recall@10": 0.9878,
+          "full@2": 0.6341,
+          "full@5": 0.9024,
+          "full@10": 0.9756,
+          "sent_recall@5": 0.9553,
+          "sent_recall@10": 0.9878,
+          "context_words@10": 770.9756,
+          "latency_ms": 32.7707,
+          "rerank_ms": 0.0
+        }
+      }
+    },
+    "weighted-a0.7": {
+      "entry": {
+        "name": "weighted-a0.7",
+        "index": "paragraph",
+        "embedder": "production",
+        "overrides": {
+          "mode": "hybrid",
+          "fusion": "weighted",
+          "dense_weight": 0.7,
+          "rerank": false,
+          "selection": "topk"
+        }
+      },
+      "config": {
+        "mode": "hybrid",
+        "fusion": "weighted",
+        "rrf_k": 60,
+        "dense_weight": 0.7,
+        "candidates_per_list": 50,
+        "rerank": false,
+        "rerank_top_n": 30,
+        "selection": "topk",
+        "final_k": 10,
+        "coverage": {
+          "w_ce": 0.6,
+          "w_rrf": 0.4,
+          "w_cov": 0.3,
+          "redundancy_lambda": 0.3,
+          "max_chunks_per_doc": 2,
+          "covers_top_n": 5,
+          "min_score": 0.0
+        }
+      },
+      "summary": {
+        "all": {
+          "n": 200,
+          "rr": 0.9366,
+          "recall@1": 0.4425,
+          "recall@2": 0.68,
+          "recall@5": 0.8225,
+          "recall@10": 0.875,
+          "full@2": 0.385,
+          "full@5": 0.645,
+          "full@10": 0.75,
+          "sent_recall@5": 0.8275,
+          "sent_recall@10": 0.8792,
+          "context_words@10": 878.24,
+          "latency_ms": 34.954,
+          "rerank_ms": 0.001
+        },
+        "bridge": {
+          "n": 159,
+          "rr": 0.9297,
+          "recall@1": 0.4371,
+          "recall@2": 0.6415,
+          "recall@5": 0.783,
+          "recall@10": 0.8459,
+          "full@2": 0.3145,
+          "full@5": 0.566,
+          "full@10": 0.6918,
+          "sent_recall@5": 0.7883,
+          "sent_recall@10": 0.8512,
+          "context_words@10": 907.2013,
+          "latency_ms": 34.8,
+          "rerank_ms": 0.0013
+        },
+        "comparison": {
+          "n": 41,
+          "rr": 0.9634,
+          "recall@1": 0.4634,
+          "recall@2": 0.8293,
+          "recall@5": 0.9756,
+          "recall@10": 0.9878,
+          "full@2": 0.6585,
+          "full@5": 0.9512,
+          "full@10": 0.9756,
+          "sent_recall@5": 0.9797,
+          "sent_recall@10": 0.9878,
+          "context_words@10": 765.9268,
+          "latency_ms": 35.5512,
+          "rerank_ms": 0.0
+        }
+      }
+    },
+    "weighted-a0.9": {
+      "entry": {
+        "name": "weighted-a0.9",
+        "index": "paragraph",
+        "embedder": "production",
+        "overrides": {
+          "mode": "hybrid",
+          "fusion": "weighted",
+          "dense_weight": 0.9,
+          "rerank": false,
+          "selection": "topk"
+        }
+      },
+      "config": {
+        "mode": "hybrid",
+        "fusion": "weighted",
+        "rrf_k": 60,
+        "dense_weight": 0.9,
+        "candidates_per_list": 50,
+        "rerank": false,
+        "rerank_top_n": 30,
+        "selection": "topk",
+        "final_k": 10,
+        "coverage": {
+          "w_ce": 0.6,
+          "w_rrf": 0.4,
+          "w_cov": 0.3,
+          "redundancy_lambda": 0.3,
+          "max_chunks_per_doc": 2,
+          "covers_top_n": 5,
+          "min_score": 0.0
+        }
+      },
+      "summary": {
+        "all": {
+          "n": 200,
+          "rr": 0.9283,
+          "recall@1": 0.4375,
+          "recall@2": 0.655,
+          "recall@5": 0.805,
+          "recall@10": 0.845,
+          "full@2": 0.345,
+          "full@5": 0.62,
+          "full@10": 0.69,
+          "sent_recall@5": 0.8125,
+          "sent_recall@10": 0.8492,
+          "context_words@10": 866.43,
+          "latency_ms": 33.5395,
+          "rerank_ms": 0.0
+        },
+        "bridge": {
+          "n": 159,
+          "rr": 0.9223,
+          "recall@1": 0.434,
+          "recall@2": 0.6132,
+          "recall@5": 0.761,
+          "recall@10": 0.8082,
+          "full@2": 0.2704,
+          "full@5": 0.5346,
+          "full@10": 0.6164,
+          "sent_recall@5": 0.7694,
+          "sent_recall@10": 0.8134,
+          "context_words@10": 884.8428,
+          "latency_ms": 33.639,
+          "rerank_ms": 0.0
+        },
+        "comparison": {
+          "n": 41,
+          "rr": 0.9512,
+          "recall@1": 0.4512,
+          "recall@2": 0.8171,
+          "recall@5": 0.9756,
+          "recall@10": 0.9878,
+          "full@2": 0.6341,
+          "full@5": 0.9512,
+          "full@10": 0.9756,
+          "sent_recall@5": 0.9797,
+          "sent_recall@10": 0.9878,
+          "context_words@10": 795.0244,
+          "latency_ms": 33.1537,
+          "rerank_ms": 0.0
+        }
+      }
+    },
+    "coverage-l0.0": {
+      "entry": {
+        "name": "coverage-l0.0",
+        "index": "paragraph",
+        "embedder": "production",
+        "overrides": {
+          "mode": "hybrid",
+          "rerank": true,
+          "selection": "coverage",
+          "coverage": {
+            "redundancy_lambda": 0.0
+          }
+        }
+      },
+      "config": {
+        "mode": "hybrid",
+        "fusion": "rrf",
+        "rrf_k": 60,
+        "dense_weight": 0.5,
+        "candidates_per_list": 50,
+        "rerank": true,
+        "rerank_top_n": 30,
+        "selection": "coverage",
+        "final_k": 10,
+        "coverage": {
+          "w_ce": 0.6,
+          "w_rrf": 0.4,
+          "w_cov": 0.3,
+          "redundancy_lambda": 0.0,
+          "max_chunks_per_doc": 2,
+          "covers_top_n": 5,
+          "min_score": 0.0
+        }
+      },
+      "summary": {
+        "all": {
+          "n": 200,
+          "rr": 0.9727,
+          "recall@1": 0.4775,
+          "recall@2": 0.6825,
+          "recall@5": 0.825,
+          "recall@10": 0.8875,
+          "full@2": 0.39,
+          "full@5": 0.65,
+          "full@10": 0.775,
+          "sent_recall@5": 0.8319,
+          "sent_recall@10": 0.8893,
+          "context_words@10": 867.42,
+          "latency_ms": 2667.2955,
+          "rerank_ms": 2064.1065
+        },
+        "bridge": {
+          "n": 159,
+          "rr": 0.9706,
+          "recall@1": 0.4748,
+          "recall@2": 0.6509,
+          "recall@5": 0.7925,
+          "recall@10": 0.8585,
+          "full@2": 0.327,
+          "full@5": 0.5849,
+          "full@10": 0.717,
+          "sent_recall@5": 0.8001,
+          "sent_recall@10": 0.8608,
+          "context_words@10": 899.4591,
+          "latency_ms": 2775.0327,
+          "rerank_ms": 2167.2623
+        },
+        "comparison": {
+          "n": 41,
+          "rr": 0.9805,
+          "recall@1": 0.4878,
+          "recall@2": 0.8049,
+          "recall@5": 0.9512,
+          "recall@10": 1.0,
+          "full@2": 0.6341,
+          "full@5": 0.9024,
+          "full@10": 1.0,
+          "sent_recall@5": 0.9553,
+          "sent_recall@10": 1.0,
+          "context_words@10": 743.1707,
+          "latency_ms": 2249.4854,
+          "rerank_ms": 1664.0634
+        }
+      }
+    },
+    "coverage-l0.15": {
+      "entry": {
+        "name": "coverage-l0.15",
+        "index": "paragraph",
+        "embedder": "production",
+        "overrides": {
+          "mode": "hybrid",
+          "rerank": true,
+          "selection": "coverage",
+          "coverage": {
+            "redundancy_lambda": 0.15
+          }
+        }
+      },
+      "config": {
+        "mode": "hybrid",
+        "fusion": "rrf",
+        "rrf_k": 60,
+        "dense_weight": 0.5,
+        "candidates_per_list": 50,
+        "rerank": true,
+        "rerank_top_n": 30,
+        "selection": "coverage",
+        "final_k": 10,
+        "coverage": {
+          "w_ce": 0.6,
+          "w_rrf": 0.4,
+          "w_cov": 0.3,
+          "redundancy_lambda": 0.15,
+          "max_chunks_per_doc": 2,
+          "covers_top_n": 5,
+          "min_score": 0.0
+        }
+      },
+      "summary": {
+        "all": {
+          "n": 200,
+          "rr": 0.9725,
+          "recall@1": 0.4775,
+          "recall@2": 0.7,
+          "recall@5": 0.8225,
+          "recall@10": 0.88,
+          "full@2": 0.42,
+          "full@5": 0.65,
+          "full@10": 0.76,
+          "sent_recall@5": 0.8273,
+          "sent_recall@10": 0.8832,
+          "context_words@10": 880.525,
+          "latency_ms": 317.9365,
+          "rerank_ms": 0.3695
+        },
+        "bridge": {
+          "n": 159,
+          "rr": 0.9706,
+          "recall@1": 0.4748,
+          "recall@2": 0.6509,
+          "recall@5": 0.7893,
+          "recall@10": 0.8522,
+          "full@2": 0.3208,
+          "full@5": 0.5786,
+          "full@10": 0.7044,
+          "sent_recall@5": 0.7943,
+          "sent_recall@10": 0.8562,
+          "context_words@10": 911.3899,
+          "latency_ms": 317.9176,
+          "rerank_ms": 0.3673
+        },
+        "comparison": {
+          "n": 41,
+          "rr": 0.9797,
+          "recall@1": 0.4878,
+          "recall@2": 0.8902,
+          "recall@5": 0.9512,
+          "recall@10": 0.9878,
+          "full@2": 0.8049,
+          "full@5": 0.9268,
+          "full@10": 0.9756,
+          "sent_recall@5": 0.9553,
+          "sent_recall@10": 0.9878,
+          "context_words@10": 760.8293,
+          "latency_ms": 318.0098,
+          "rerank_ms": 0.378
+        }
+      }
+    },
+    "coverage-l0.3": {
+      "entry": {
+        "name": "coverage-l0.3",
+        "index": "paragraph",
+        "embedder": "production",
+        "overrides": {
+          "mode": "hybrid",
+          "rerank": true,
+          "selection": "coverage",
+          "coverage": {
+            "redundancy_lambda": 0.3
+          }
+        }
+      },
+      "config": {
+        "mode": "hybrid",
+        "fusion": "rrf",
+        "rrf_k": 60,
+        "dense_weight": 0.5,
+        "candidates_per_list": 50,
+        "rerank": true,
+        "rerank_top_n": 30,
+        "selection": "coverage",
+        "final_k": 10,
+        "coverage": {
+          "w_ce": 0.6,
+          "w_rrf": 0.4,
+          "w_cov": 0.3,
+          "redundancy_lambda": 0.3,
+          "max_chunks_per_doc": 2,
+          "covers_top_n": 5,
+          "min_score": 0.0
+        }
+      },
+      "summary": {
+        "all": {
+          "n": 200,
+          "rr": 0.9708,
+          "recall@1": 0.4775,
+          "recall@2": 0.695,
+          "recall@5": 0.8125,
+          "recall@10": 0.87,
+          "full@2": 0.415,
+          "full@5": 0.63,
+          "full@10": 0.74,
+          "sent_recall@5": 0.819,
+          "sent_recall@10": 0.874,
+          "context_words@10": 891.435,
+          "latency_ms": 309.329,
+          "rerank_ms": 0.37
+        },
+        "bridge": {
+          "n": 159,
+          "rr": 0.9684,
+          "recall@1": 0.4748,
+          "recall@2": 0.6478,
+          "recall@5": 0.7767,
+          "recall@10": 0.8396,
+          "full@2": 0.3208,
+          "full@5": 0.5535,
+          "full@10": 0.6792,
+          "sent_recall@5": 0.7839,
+          "sent_recall@10": 0.8447,
+          "context_words@10": 920.6981,
+          "latency_ms": 311.2233,
+          "rerank_ms": 0.3723
+        },
+        "comparison": {
+          "n": 41,
+          "rr": 0.9797,
+          "recall@1": 0.4878,
+          "recall@2": 0.878,
+          "recall@5": 0.9512,
+          "recall@10": 0.9878,
+          "full@2": 0.7805,
+          "full@5": 0.9268,
+          "full@10": 0.9756,
+          "sent_recall@5": 0.9553,
+          "sent_recall@10": 0.9878,
+          "context_words@10": 777.9512,
+          "latency_ms": 301.9829,
+          "rerank_ms": 0.361
+        }
+      }
+    }
+  }
+}

@@ -16,7 +16,14 @@ class DenseEmbedder(Protocol):
     model: str
     dimensions: int
 
-    def embed(self, texts: list[str]) -> list[list[float]]: ...
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        """Embed documents/chunks."""
+        ...
+
+    def embed_queries(self, queries: list[str]) -> list[list[float]]:
+        """Embed search queries. Same as documents for OpenAI; kept separate because
+        some models (e.g. bge) expect an instruction prefix on queries."""
+        ...
 
 
 class OpenAIEmbedder:
@@ -52,8 +59,16 @@ class OpenAIEmbedder:
             vectors.extend(d.embedding for d in sorted(resp.data, key=lambda d: d.index))
         return vectors
 
+    def embed_queries(self, queries: list[str]) -> list[list[float]]:
+        return self.embed(queries)
 
-def make_openai_embedder(secrets: Secrets, cfg: EmbeddingConfig) -> OpenAIEmbedder:
+
+def make_openai_embedder(
+    secrets: Secrets, cfg: EmbeddingConfig, comparison: bool = False
+) -> OpenAIEmbedder:
+    """comparison=True uses the comparison model (offline evaluation only)."""
+    if comparison:
+        cfg = cfg.model_copy(update={"name": cfg.comparison_name})
     client = OpenAI(
         api_key=secrets.openai_api_key.get_secret_value(),
         max_retries=cfg.max_retries,

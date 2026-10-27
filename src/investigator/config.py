@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, SecretStr, ValidationError
+from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -49,6 +49,7 @@ class LLMConfig(BaseModel):
 class EmbeddingConfig(BaseModel):
     provider: Literal["openai"]
     name: str
+    comparison_name: str
     dimensions: int
     batch_size: int
     max_retries: int
@@ -63,6 +64,8 @@ class IndexConfig(BaseModel):
 
 
 class CoverageConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")  # a typo in an eval override must fail loudly
+
     w_ce: float
     w_rrf: float
     w_cov: float
@@ -73,6 +76,8 @@ class CoverageConfig(BaseModel):
 
 
 class RetrievalConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     mode: Literal["dense", "sparse", "hybrid"]
     fusion: Literal["rrf", "weighted"]
     rrf_k: int
@@ -87,7 +92,7 @@ class RetrievalConfig(BaseModel):
 
 class LocalModelsConfig(BaseModel):
     cache_dir: str
-    threads: int
+    threads: int | None  # None = all CPU cores (offline evaluation)
     sparse: str
     reranker: str
 
