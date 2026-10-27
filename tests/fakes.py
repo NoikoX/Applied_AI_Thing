@@ -40,6 +40,14 @@ class HashEmbedder:
         return vectors
 
 
+class FakeReranker:
+    """Relevance = share of query words that appear in the text."""
+
+    def score(self, query: str, texts: list[str]) -> list[float]:
+        q = set(_tokens(query))
+        return [len(q & set(_tokens(t))) / len(q) if q else 0.0 for t in texts]
+
+
 class FakeSparse:
     """Term counts keyed by hashed token IDs."""
 

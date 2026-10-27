@@ -62,6 +62,29 @@ class IndexConfig(BaseModel):
     near_duplicate_threshold: float
 
 
+class CoverageConfig(BaseModel):
+    w_ce: float
+    w_rrf: float
+    w_cov: float
+    redundancy_lambda: float
+    max_chunks_per_doc: int
+    covers_top_n: int
+    min_score: float
+
+
+class RetrievalConfig(BaseModel):
+    mode: Literal["dense", "sparse", "hybrid"]
+    fusion: Literal["rrf", "weighted"]
+    rrf_k: int
+    dense_weight: float
+    candidates_per_list: int
+    rerank: bool
+    rerank_top_n: int
+    selection: Literal["topk", "coverage"]
+    final_k: int
+    coverage: CoverageConfig
+
+
 class LocalModelsConfig(BaseModel):
     cache_dir: str
     threads: int
@@ -99,6 +122,7 @@ class AppConfig(BaseModel):
     llm: LLMConfig
     embeddings: EmbeddingConfig
     index: IndexConfig
+    retrieval: RetrievalConfig
     local_models: LocalModelsConfig
     chunking: ChunkingConfig
     dataset: DatasetConfig

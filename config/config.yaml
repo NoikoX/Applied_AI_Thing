@@ -29,6 +29,25 @@ index:
   chunking_strategy: paragraph  # collections are named chunks_<strategy> and docs_<strategy>
   near_duplicate_threshold: 0.95  # cosine similarity above which a new chunk is not indexed again
 
+retrieval:  # every switch here is an evaluation configuration (see docs/DECISIONS.md D3-D5)
+  mode: hybrid  # dense | sparse | hybrid
+  fusion: rrf  # rrf | weighted
+  rrf_k: 60  # RRF constant: score = sum of 1 / (rrf_k + rank)
+  dense_weight: 0.5  # weighted fusion only: alpha * dense + (1 - alpha) * bm25
+  candidates_per_list: 50  # top hits taken from each search list
+  rerank: true
+  rerank_top_n: 30  # candidates passed to the cross-encoder
+  selection: coverage  # topk | coverage
+  final_k: 10  # chunks returned to the LLM
+  coverage:  # weights to be tuned on the dev split only
+    w_ce: 0.6  # cross-encoder relevance
+    w_rrf: 0.4  # fused hybrid score
+    w_cov: 0.3  # bonus for covering a sub-question not yet covered
+    redundancy_lambda: 0.3  # penalty x max cosine similarity to chunks already selected
+    max_chunks_per_doc: 2
+    covers_top_n: 5  # a chunk "covers" a sub-question if it ranks this high for it
+    min_score: 0.0  # stop selecting below this (feeds the insufficient-evidence check)
+
 local_models:  # ONNX models run in-process via fastembed (no PyTorch)
   cache_dir: .cache/models  # relative to project root; filled at Docker build time
   threads: 1  # Render free has ~0.5 vCPU; more threads only add memory

@@ -148,6 +148,19 @@ GitHub Actions: CI (offline tests) · daily keep-alive /health/deep · manual li
 
 **Tuning:** weights tuned on a dev split only (D7); the reported test split is never used for tuning. Start with λ and `w_cov` only; ablation table shows each term's contribution.
 
+**Early sanity check (M5, not the evaluation):** 60 dev questions on a small index of only their own 600 paragraphs, real models, no sub-questions:
+
+| Config | Recall@5 | Both gold in top 5 |
+|---|---|---|
+| dense | 0.883 | 0.767 |
+| BM25 | 0.775 | 0.583 |
+| hybrid RRF | 0.867 | 0.733 |
+| hybrid weighted | 0.883 | 0.767 |
+| hybrid + rerank | 0.858 | 0.717 |
+| hybrid + rerank + coverage | 0.817 | 0.650 |
+
+On this tiny, easy index neither reranking nor coverage helped, and without sub-questions the coverage term is inactive, so only the redundancy penalty acts (and it can push out the second gold paragraph, which is topically similar to the first). 60 questions is also within noise (one question = 0.017). The real comparison runs in M6 on the full 46k-paragraph index, and coverage is meant to be judged with the agent's sub-questions. Reranker cost measured on my laptop: ~1.7 s for 30 pairs with 1 thread, ~0.6 s with all threads; Render (0.5 vCPU) will be slower — to measure in M13.
+
 **Options rejected:** plain cross-encoder top-K (no diversity, no hop coverage); learned-to-rank (needs training data and is harder to explain).
 
 **Interview defense:** "I can derive every term. Relevance comes from the cross-encoder and fusion, diversity from MMR's redundancy penalty, and the coverage bonus is specific to multi-hop: it rewards evidence for the part of the question not yet answered. The ablation shows it earns its place."
