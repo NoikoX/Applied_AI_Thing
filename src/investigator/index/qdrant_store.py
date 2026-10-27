@@ -42,6 +42,22 @@ def registry_point_id(doc_id: str) -> str:
     return str(uuid.uuid5(REGISTRY_NAMESPACE, doc_id))
 
 
+def check_embedding_model(
+    client: QdrantClient, collection: str, embedding_model: str, dimensions: int
+) -> None:
+    """Raise unless `collection` was built with this embedding model and size.
+
+    Vectors from different models live in unrelated spaces: a query embedded
+    with one model searched against another model's vectors returns plausible
+    looking but meaningless results, with no error. So both indexing and search check.
+    """
+    expected = {"embedding_model": embedding_model, "dimensions": dimensions}
+    meta = client.get_collection(collection).config.metadata or {}
+    found = {k: meta.get(k) for k in expected}
+    if found != expected:
+        raise IndexMismatchError(f"'{collection}' was built with {found}, expected {expected}")
+
+
 def ensure_collections(
     client: QdrantClient,
     strategy: str,
@@ -51,16 +67,12 @@ def ensure_collections(
 ) -> None:
     """Create both collections if missing; refuse to reuse one built with another model.
 
-    Vectors from different embedding models are not comparable, so silently
-    mixing them would make search results meaningless. index_name defaults to the strategy.
+    index_name defaults to the strategy.
     """
     chunks = chunks_collection(index_name or strategy)
     expected = {"embedding_model": embedding_model, "dimensions": dimensions}
     if client.collection_exists(chunks):
-        meta = client.get_collection(chunks).config.metadata or {}
-        found = {k: meta.get(k) for k in expected}
-        if found != expected:
-            raise IndexMismatchError(f"'{chunks}' was built with {found}, config says {expected}")
+        check_embedding_model(client, chunks, embedding_model, dimensions)
     else:
         client.create_collection(
             chunks,

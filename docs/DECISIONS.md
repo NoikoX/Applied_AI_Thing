@@ -97,7 +97,9 @@ GitHub Actions: CI (offline tests) · daily keep-alive /health/deep · manual li
 | Neon Postgres + pgvector + tsvector | Familiar SQL | Weaker keyword ranking than BM25 |
 | Chroma + in-memory `rank_bm25` | Simple | BM25 index rebuilt on every restart |
 
-**Chosen:** Qdrant Cloud. I deliberately do **not** use Qdrant's built-in fusion.
+**Chosen:** Qdrant Cloud. I deliberately do **not** use Qdrant's built-in fusion. Production fusion after M6: **weighted, α = 0.5** (beat RRF on dev and test; α tuned on dev).
+
+**Safety check:** both indexing and search refuse a collection whose stored embedding model differs from the configured one, because mismatched vectors return plausible but meaningless results without any error. Local experiment collections are named after their model (`paragraph__large`, `paragraph__small`, `sentence_window__small`); the deployed app uses `paragraph`.
 
 **Fusion methods (hand-written, both evaluated):**
 - **RRF** (reciprocal rank fusion): `score(d) = Σ_lists 1 / (k + rank(d))`, k = 60. Uses ranks only, so no score calibration between dense cosine and BM25 is needed.
@@ -119,7 +121,7 @@ GitHub Actions: CI (offline tests) · daily keep-alive /health/deep · manual li
 | `BAAI/bge-small-en-v1.5` (local, fastembed ONNX) | Free, 384-d, 67 MB; needs a query prefix (fastembed handles it) |
 | `gemini-embedding-001` | Free but daily request limits make full ingest slow |
 
-**Chosen:** `text-embedding-3-small` in production. **Comparison (bonus):** originally `bge-small-en-v1.5` offline; changed in M6 to `text-embedding-3-large` at the same 1,536 dimensions, because bge ran at ~11–15 texts/s on my laptop CPU (~50–70 min for the corpus) while the API model indexed in ~18 min for ~$0.77. Same vector size means only the model differs. Results: see "M6 retrieval results" under D10.
+**Chosen:** `text-embedding-3-small` in production at first; **switched to `text-embedding-3-large` (1,536 dims) after M6**, where it beat `-small` by ~10 points Full@5 on both dev and test, at the same Qdrant RAM and ~$0.77 one-off indexing cost. `-small` is now the comparison model. **Comparison (bonus):** originally `bge-small-en-v1.5` offline; changed in M6 to `text-embedding-3-large` at the same 1,536 dimensions, because bge ran at ~11–15 texts/s on my laptop CPU (~50–70 min for the corpus) while the API model indexed in ~18 min for ~$0.77. Same vector size means only the model differs. Results: see "M6 retrieval results" under D10.
 
 **Reranker:** cross-encoder `Xenova/ms-marco-MiniLM-L-6-v2` via fastembed (ONNX, ~80 MB). A cross-encoder reads (query, passage) together → more accurate than vector similarity, but too slow for more than ~30 candidates, so it only rescores the fused top 30.
 
@@ -311,7 +313,7 @@ Metrics (all hand-written):
 
 ### M6 retrieval results (single-pass retrieval, no sub-questions)
 
-Full index (46,172 paragraphs; 84,778 sentence windows) in a local Qdrant 1.20 (Docker), tuned on 200 dev questions, reported on 500 test questions. Metrics over the top-K chunks. Tables and per-question rows: `eval/results/retrieval_*`. "Full@K" = both gold paragraphs in the top K.
+Full index (46,172 paragraphs; 84,778 sentence windows) in a local Qdrant 1.20 (Docker), tuned on 200 dev questions, reported on 500 test questions. After these runs the local collections were renamed after their model (the test result files still show the old names `paragraph` = small, `paragraph__comparison` = large); re-running the dev embedding grid on the renamed copies moved numbers by at most 0.5 points, because Qdrant's HNSW search is approximate and the graph is rebuilt on copy. Metrics over the top-K chunks. Tables and per-question rows: `eval/results/retrieval_*`. "Full@K" = both gold paragraphs in the top K.
 
 | Config (test, 500) | Recall@5 | Full@5 | Full@10 | MRR |
 |---|---|---|---|---|

@@ -20,9 +20,10 @@ llm:
 
 embeddings:
   provider: openai
-  name: text-embedding-3-small
+  # Production model. Chosen in M6: beat -small by ~10 points Full@5 on dev and test.
+  name: text-embedding-3-large
   # Offline embedding comparison only: same vector size, so only the model differs.
-  comparison_name: text-embedding-3-large
+  comparison_name: text-embedding-3-small
   dimensions: 1536
   batch_size: 256  # texts per API request
   max_retries: 5  # the OpenAI SDK retries 429/5xx/timeouts with exponential backoff
@@ -33,7 +34,7 @@ index:
 
 retrieval:  # every switch here is an evaluation configuration (see docs/DECISIONS.md D3-D5)
   mode: hybrid  # dense | sparse | hybrid
-  fusion: rrf  # rrf | weighted
+  fusion: weighted  # rrf | weighted. M6: weighted beat RRF on dev and test
   rrf_k: 60  # RRF constant: score = sum of 1 / (rrf_k + rank)
   dense_weight: 0.5  # weighted fusion only: alpha * dense + (1 - alpha) * bm25
   candidates_per_list: 50  # top hits taken from each search list

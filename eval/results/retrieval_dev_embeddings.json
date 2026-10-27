@@ -3,8 +3,8 @@
     "grid": "embeddings",
     "split": "dev",
     "n_questions": 200,
-    "date": "2026-10-27T19:50:00+00:00",
-    "git_commit": "1e04657",
+    "date": "2026-10-27T20:07:15+00:00",
+    "git_commit": "f1496c5",
     "rerank_ms_per_pair": null,
     "rerank_cache": {
       "hits": 0,
@@ -36,8 +36,8 @@
     "small-dense": {
       "entry": {
         "name": "small-dense",
-        "index": "paragraph",
-        "embedder": "production",
+        "index": "paragraph__small",
+        "embedder": "comparison",
         "overrides": {
           "mode": "dense",
           "rerank": false,
@@ -46,7 +46,7 @@
       },
       "config": {
         "mode": "dense",
-        "fusion": "rrf",
+        "fusion": "weighted",
         "rrf_k": 60,
         "dense_weight": 0.5,
         "candidates_per_list": 50,
@@ -77,9 +77,9 @@
           "full@10": 0.67,
           "sent_recall@5": 0.8033,
           "sent_recall@10": 0.84,
-          "context_words@10": 865.7,
-          "latency_ms": 228.9025,
-          "rerank_ms": 0.007
+          "context_words@10": 864.505,
+          "latency_ms": 246.091,
+          "rerank_ms": 0.0025
         },
         "bridge": {
           "n": 159,
@@ -93,9 +93,9 @@
           "full@10": 0.5975,
           "sent_recall@5": 0.761,
           "sent_recall@10": 0.804,
-          "context_words@10": 885.5786,
-          "latency_ms": 232.2541,
-          "rerank_ms": 0.0075
+          "context_words@10": 885.1447,
+          "latency_ms": 247.4704,
+          "rerank_ms": 0.0031
         },
         "comparison": {
           "n": 41,
@@ -109,17 +109,17 @@
           "full@10": 0.9512,
           "sent_recall@5": 0.9675,
           "sent_recall@10": 0.9797,
-          "context_words@10": 788.6098,
-          "latency_ms": 215.9049,
-          "rerank_ms": 0.0049
+          "context_words@10": 784.4634,
+          "latency_ms": 240.7415,
+          "rerank_ms": 0.0
         }
       }
     },
     "large-dense": {
       "entry": {
         "name": "large-dense",
-        "index": "paragraph__comparison",
-        "embedder": "comparison",
+        "index": "paragraph__large",
+        "embedder": "production",
         "overrides": {
           "mode": "dense",
           "rerank": false,
@@ -128,7 +128,7 @@
       },
       "config": {
         "mode": "dense",
-        "fusion": "rrf",
+        "fusion": "weighted",
         "rrf_k": 60,
         "dense_weight": 0.5,
         "candidates_per_list": 50,
@@ -149,7 +149,7 @@
       "summary": {
         "all": {
           "n": 200,
-          "rr": 0.9377,
+          "rr": 0.9373,
           "recall@1": 0.45,
           "recall@2": 0.705,
           "recall@5": 0.835,
@@ -159,13 +159,13 @@
           "full@10": 0.79,
           "sent_recall@5": 0.8422,
           "sent_recall@10": 0.8994,
-          "context_words@10": 865.665,
-          "latency_ms": 262.3955,
+          "context_words@10": 865.79,
+          "latency_ms": 269.052,
           "rerank_ms": 0.006
         },
         "bridge": {
           "n": 159,
-          "rr": 0.9217,
+          "rr": 0.9211,
           "recall@1": 0.4371,
           "recall@2": 0.6541,
           "recall@5": 0.7956,
@@ -175,9 +175,9 @@
           "full@10": 0.7358,
           "sent_recall@5": 0.8037,
           "sent_recall@10": 0.8735,
-          "context_words@10": 891.1635,
-          "latency_ms": 264.7107,
-          "rerank_ms": 0.0063
+          "context_words@10": 891.1698,
+          "latency_ms": 266.5107,
+          "rerank_ms": 0.0057
         },
         "comparison": {
           "n": 41,
@@ -191,19 +191,20 @@
           "full@10": 1.0,
           "sent_recall@5": 0.9919,
           "sent_recall@10": 1.0,
-          "context_words@10": 766.7805,
-          "latency_ms": 253.4171,
-          "rerank_ms": 0.0049
+          "context_words@10": 767.3659,
+          "latency_ms": 278.9073,
+          "rerank_ms": 0.0073
         }
       }
     },
     "small-hybrid-rrf": {
       "entry": {
         "name": "small-hybrid-rrf",
-        "index": "paragraph",
-        "embedder": "production",
+        "index": "paragraph__small",
+        "embedder": "comparison",
         "overrides": {
           "mode": "hybrid",
+          "fusion": "rrf",
           "rerank": false,
           "selection": "topk"
         }
@@ -235,15 +236,15 @@
           "recall@1": 0.4325,
           "recall@2": 0.64,
           "recall@5": 0.805,
-          "recall@10": 0.8875,
+          "recall@10": 0.885,
           "full@2": 0.34,
           "full@5": 0.62,
-          "full@10": 0.775,
+          "full@10": 0.77,
           "sent_recall@5": 0.809,
-          "sent_recall@10": 0.8893,
-          "context_words@10": 895.055,
-          "latency_ms": 35.1945,
-          "rerank_ms": 0.003
+          "sent_recall@10": 0.8877,
+          "context_words@10": 895.99,
+          "latency_ms": 42.2235,
+          "rerank_ms": 0.0025
         },
         "bridge": {
           "n": 159,
@@ -257,8 +258,8 @@
           "full@10": 0.7233,
           "sent_recall@5": 0.7797,
           "sent_recall@10": 0.8639,
-          "context_words@10": 928.6981,
-          "latency_ms": 35.0673,
+          "context_words@10": 930.4717,
+          "latency_ms": 42.8453,
           "rerank_ms": 0.0025
         },
         "comparison": {
@@ -267,25 +268,26 @@
           "recall@1": 0.3902,
           "recall@2": 0.7195,
           "recall@5": 0.9146,
-          "recall@10": 0.9878,
+          "recall@10": 0.9756,
           "full@2": 0.5122,
           "full@5": 0.8293,
-          "full@10": 0.9756,
+          "full@10": 0.9512,
           "sent_recall@5": 0.9228,
-          "sent_recall@10": 0.9878,
-          "context_words@10": 764.5854,
-          "latency_ms": 35.6878,
-          "rerank_ms": 0.0049
+          "sent_recall@10": 0.9797,
+          "context_words@10": 762.2683,
+          "latency_ms": 39.8122,
+          "rerank_ms": 0.0024
         }
       }
     },
     "large-hybrid-rrf": {
       "entry": {
         "name": "large-hybrid-rrf",
-        "index": "paragraph__comparison",
-        "embedder": "comparison",
+        "index": "paragraph__large",
+        "embedder": "production",
         "overrides": {
           "mode": "hybrid",
+          "fusion": "rrf",
           "rerank": false,
           "selection": "topk"
         }
@@ -316,31 +318,31 @@
           "rr": 0.9483,
           "recall@1": 0.455,
           "recall@2": 0.6825,
-          "recall@5": 0.85,
-          "recall@10": 0.9,
+          "recall@5": 0.8475,
+          "recall@10": 0.9025,
           "full@2": 0.395,
-          "full@5": 0.705,
-          "full@10": 0.8,
-          "sent_recall@5": 0.8532,
-          "sent_recall@10": 0.9032,
-          "context_words@10": 881.965,
-          "latency_ms": 39.199,
-          "rerank_ms": 0.0025
+          "full@5": 0.7,
+          "full@10": 0.805,
+          "sent_recall@5": 0.8507,
+          "sent_recall@10": 0.9057,
+          "context_words@10": 883.65,
+          "latency_ms": 43.863,
+          "rerank_ms": 0.004
         },
         "bridge": {
           "n": 159,
           "rr": 0.9534,
           "recall@1": 0.4591,
           "recall@2": 0.6572,
-          "recall@5": 0.8239,
-          "recall@10": 0.8774,
+          "recall@5": 0.8208,
+          "recall@10": 0.8805,
           "full@2": 0.3396,
-          "full@5": 0.6541,
-          "full@10": 0.7547,
-          "sent_recall@5": 0.8279,
-          "sent_recall@10": 0.8813,
-          "context_words@10": 915.4906,
-          "latency_ms": 39.1585,
+          "full@5": 0.6478,
+          "full@10": 0.761,
+          "sent_recall@5": 0.8247,
+          "sent_recall@10": 0.8845,
+          "context_words@10": 916.2075,
+          "latency_ms": 44.2233,
           "rerank_ms": 0.0025
         },
         "comparison": {
@@ -355,17 +357,17 @@
           "full@10": 0.9756,
           "sent_recall@5": 0.9512,
           "sent_recall@10": 0.9878,
-          "context_words@10": 751.9512,
-          "latency_ms": 39.3561,
-          "rerank_ms": 0.0024
+          "context_words@10": 757.3902,
+          "latency_ms": 42.4659,
+          "rerank_ms": 0.0098
         }
       }
     },
     "small-hybrid-weighted": {
       "entry": {
         "name": "small-hybrid-weighted",
-        "index": "paragraph",
-        "embedder": "production",
+        "index": "paragraph__small",
+        "embedder": "comparison",
         "overrides": {
           "mode": "hybrid",
           "fusion": "weighted",
@@ -406,9 +408,9 @@
           "full@10": 0.755,
           "sent_recall@5": 0.8375,
           "sent_recall@10": 0.8817,
-          "context_words@10": 897.515,
-          "latency_ms": 35.8705,
-          "rerank_ms": 0.001
+          "context_words@10": 896.715,
+          "latency_ms": 37.757,
+          "rerank_ms": 0.0005
         },
         "bridge": {
           "n": 159,
@@ -422,9 +424,9 @@
           "full@10": 0.6981,
           "sent_recall@5": 0.8071,
           "sent_recall@10": 0.8543,
-          "context_words@10": 930.1447,
-          "latency_ms": 36.0623,
-          "rerank_ms": 0.0013
+          "context_words@10": 930.1258,
+          "latency_ms": 37.6421,
+          "rerank_ms": 0.0006
         },
         "comparison": {
           "n": 41,
@@ -438,8 +440,8 @@
           "full@10": 0.9756,
           "sent_recall@5": 0.9553,
           "sent_recall@10": 0.9878,
-          "context_words@10": 770.9756,
-          "latency_ms": 35.1268,
+          "context_words@10": 767.1463,
+          "latency_ms": 38.2024,
           "rerank_ms": 0.0
         }
       }
@@ -447,8 +449,8 @@
     "large-hybrid-weighted": {
       "entry": {
         "name": "large-hybrid-weighted",
-        "index": "paragraph__comparison",
-        "embedder": "comparison",
+        "index": "paragraph__large",
+        "embedder": "production",
         "overrides": {
           "mode": "hybrid",
           "fusion": "weighted",
@@ -483,15 +485,15 @@
           "recall@1": 0.465,
           "recall@2": 0.705,
           "recall@5": 0.86,
-          "recall@10": 0.91,
+          "recall@10": 0.9125,
           "full@2": 0.43,
           "full@5": 0.72,
-          "full@10": 0.82,
+          "full@10": 0.825,
           "sent_recall@5": 0.8657,
-          "sent_recall@10": 0.9132,
-          "context_words@10": 893.31,
-          "latency_ms": 36.4455,
-          "rerank_ms": 0.0015
+          "sent_recall@10": 0.9157,
+          "context_words@10": 893.155,
+          "latency_ms": 35.759,
+          "rerank_ms": 0.0035
         },
         "bridge": {
           "n": 159,
@@ -499,15 +501,15 @@
           "recall@1": 0.4654,
           "recall@2": 0.6792,
           "recall@5": 0.8333,
-          "recall@10": 0.8899,
+          "recall@10": 0.8931,
           "full@2": 0.3774,
           "full@5": 0.6667,
-          "full@10": 0.7799,
+          "full@10": 0.7862,
           "sent_recall@5": 0.8394,
-          "sent_recall@10": 0.8939,
-          "context_words@10": 929.5283,
-          "latency_ms": 36.7994,
-          "rerank_ms": 0.0013
+          "sent_recall@10": 0.8971,
+          "context_words@10": 929.3333,
+          "latency_ms": 35.7126,
+          "rerank_ms": 0.0044
         },
         "comparison": {
           "n": 41,
@@ -522,8 +524,8 @@
           "sent_recall@5": 0.9675,
           "sent_recall@10": 0.9878,
           "context_words@10": 752.8537,
-          "latency_ms": 35.0732,
-          "rerank_ms": 0.0024
+          "latency_ms": 35.939,
+          "rerank_ms": 0.0
         }
       }
     }

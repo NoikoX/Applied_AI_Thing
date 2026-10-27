@@ -2,7 +2,7 @@ import pytest
 from qdrant_client import QdrantClient
 
 from investigator.config import load_config
-from investigator.index.qdrant_store import ensure_collections
+from investigator.index.qdrant_store import IndexMismatchError, ensure_collections
 from investigator.index.registry import DocumentIndex
 from investigator.ingestion.documents import Document, Section
 from investigator.retrieval.search import HybridRetriever
@@ -70,6 +70,14 @@ def test_result_reports_timings_and_pool_size(setup):
     result = retriever(setup).search("Paris")
     assert set(result.timings_ms) == {"embed", "search", "rerank", "select"}
     assert result.n_candidates == len(PARAGRAPHS)  # tiny index: everything is a candidate
+
+
+def test_searching_an_index_built_with_another_model_is_rejected(setup):
+    client, _ = setup
+    other = HashEmbedder()
+    other.model = "some-other-model"
+    with pytest.raises(IndexMismatchError, match="some-other-model"):
+        HybridRetriever(client, "paragraph", CFG.retrieval, other, FakeSparse(), FakeReranker())
 
 
 def test_rerank_enabled_without_reranker_is_rejected(setup):

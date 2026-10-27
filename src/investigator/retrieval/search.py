@@ -16,7 +16,12 @@ from qdrant_client import QdrantClient
 
 from investigator.config import RetrievalConfig
 from investigator.index.embeddings import DenseEmbedder
-from investigator.index.qdrant_store import DENSE, SPARSE, chunks_collection
+from investigator.index.qdrant_store import (
+    DENSE,
+    SPARSE,
+    check_embedding_model,
+    chunks_collection,
+)
 from investigator.index.sparse import SparseEncoder
 from investigator.retrieval.candidate import Candidate
 from investigator.retrieval.fusion import reciprocal_rank_fusion, weighted_fusion
@@ -46,6 +51,7 @@ class HybridRetriever:
             raise ValueError("Config enables reranking but no reranker was given")
         self.client = client
         self.collection = chunks_collection(index_name)
+        check_embedding_model(client, self.collection, dense.model, dense.dimensions)
         self.cfg = cfg
         self.dense = dense
         self.sparse = sparse

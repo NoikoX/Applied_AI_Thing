@@ -1,10 +1,11 @@
 """Index data/corpus.jsonl into Qdrant with one chunking strategy and one embedding model.
 
-Usage (local Qdrant in Docker for experiments):
-    uv run python scripts/index_corpus.py --strategy paragraph --embedder openai \
-        --qdrant-url http://localhost:6333
+Usage (local Qdrant in Docker for experiments; name the index after its model):
+    uv run python scripts/index_corpus.py --strategy paragraph --embedder production \
+        --index-name paragraph__large --qdrant-url http://localhost:6333
 
-Re-running is safe: documents already indexed with the same content are skipped.
+Without --index-name the index is named after the strategy ("paragraph"), which is
+what the deployed app uses. Re-running is safe: unchanged documents are skipped.
 """
 
 import argparse
@@ -24,15 +25,11 @@ from investigator.ingestion.loaders import load_corpus_record
 BATCH_DOCS = 1024  # documents per progress step (add_many batches embedding calls inside)
 
 
-def index_name_for(strategy: str, embedder: str) -> str:
-    """Production model -> "paragraph"; comparison model -> "paragraph__comparison"."""
-    return strategy if embedder == "production" else f"{strategy}__comparison"
-
-
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--strategy", choices=["paragraph", "sentence_window"], required=True)
     parser.add_argument("--embedder", choices=["production", "comparison"], default="production")
+    parser.add_argument("--index-name", help="collection base name; defaults to the strategy")
     parser.add_argument("--qdrant-url", help="defaults to QDRANT_URL from the environment")
     parser.add_argument("--limit", type=int, help="index only the first N documents")
     args = parser.parse_args()
@@ -45,7 +42,7 @@ def main() -> None:
     lm = cfg.local_models
     sparse = BM25Encoder(SparseTextEmbedding(lm.sparse, cache_dir=str(PROJECT_ROOT / lm.cache_dir)))
 
-    name = index_name_for(args.strategy, args.embedder)
+    name = args.index_name or args.strategy
     ensure_collections(client, args.strategy, embedder.model, embedder.dimensions, index_name=name)
     index = DocumentIndex(
         client, args.strategy, cfg.chunking, embedder, sparse,
