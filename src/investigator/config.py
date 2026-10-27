@@ -59,6 +59,22 @@ class LocalModelsConfig(BaseModel):
     reranker: str
 
 
+class SentenceWindowConfig(BaseModel):
+    window: int
+    stride: int
+
+
+class RecursiveConfig(BaseModel):
+    chunk_size: int
+    chunk_overlap: int
+
+
+class ChunkingConfig(BaseModel):
+    upload_strategy: Literal["paragraph", "sentence_window", "recursive"]
+    sentence_window: SentenceWindowConfig
+    recursive: RecursiveConfig
+
+
 class DatasetConfig(BaseModel):
     hf_name: str
     hf_config: str
@@ -73,6 +89,7 @@ class AppConfig(BaseModel):
     llm: LLMConfig
     embeddings: EmbeddingConfig
     local_models: LocalModelsConfig
+    chunking: ChunkingConfig
     dataset: DatasetConfig
 
 

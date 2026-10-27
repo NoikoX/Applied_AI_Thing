@@ -164,6 +164,8 @@ GitHub Actions: CI (offline tests) · daily keep-alive /health/deep · manual li
 
 **Chosen:** compare **A vs B** on the dataset (the required comparison); C for uploads.
 
+**Measured on the corpus (M3):** A = 46,172 chunks (median 77 words, max 1,378); B = 84,778 chunks (median 58 words, max 320). For uploads without sentence labels, B uses a hand-written regex sentence splitter (approximate: it also splits after abbreviations such as "Dr.").
+
 **Trade-offs:** B doubles the point count and can split a fact across windows (overlap mitigates). A keeps context but dilutes the embedding for long paragraphs.
 
 **Interview defense:** "HotpotQA's sentence-level gold labels let me measure what chunking actually changes: whether the supporting sentence is retrieved, not just the right article."
@@ -212,7 +214,7 @@ GitHub Actions: CI (offline tests) · daily keep-alive /health/deep · manual li
 
 **Chosen:** registry in Qdrant.
 
-- **IDs:** `doc_id = UUID5(source)`, `chunk_id = UUID5(doc_id, chunk_index)` → re-ingesting is idempotent.
+- **IDs:** corpus `doc_id = "hp_" + content hash`; upload `doc_id = "up_" + hash(lower-cased file name)`, so re-uploading a file with the same name is an update; `chunk_id = UUID5(fixed namespace, doc_id:chunk_index)` (Qdrant needs UUID or int IDs) → re-ingesting is idempotent.
 - **Add:** hash check → chunk → embed → upsert chunks + registry entry.
 - **Update:** delete chunks by `doc_id` filter, upsert new ones, increment `version`.
 - **Delete:** remove chunks and registry entry.

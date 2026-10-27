@@ -29,6 +29,15 @@ local_models:  # ONNX models run in-process via fastembed (no PyTorch)
   sparse: Qdrant/bm25
   reranker: Xenova/ms-marco-MiniLM-L-6-v2
 
+chunking:  # strategies compared in evaluation: paragraph (A) vs sentence_window (B)
+  upload_strategy: recursive  # strategy C, for uploaded long documents
+  sentence_window:
+    window: 3  # sentences per chunk
+    stride: 2  # step between window starts, so consecutive chunks share 1 sentence
+  recursive:
+    chunk_size: 1000  # characters, roughly 250 tokens
+    chunk_overlap: 150
+
 dataset:
   hf_name: hotpotqa/hotpot_qa
   hf_config: distractor
