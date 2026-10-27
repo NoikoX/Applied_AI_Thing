@@ -52,6 +52,13 @@ class EmbeddingConfig(BaseModel):
     dimensions: int
 
 
+class LocalModelsConfig(BaseModel):
+    cache_dir: str
+    threads: int
+    sparse: str
+    reranker: str
+
+
 class DatasetConfig(BaseModel):
     hf_name: str
     hf_config: str
@@ -64,6 +71,7 @@ class DatasetConfig(BaseModel):
 class AppConfig(BaseModel):
     llm: LLMConfig
     embeddings: EmbeddingConfig
+    local_models: LocalModelsConfig
     dataset: DatasetConfig
 
 

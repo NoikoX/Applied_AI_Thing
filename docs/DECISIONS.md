@@ -7,7 +7,7 @@ Each decision lists options, the choice, why, trade-offs, and how I would defend
 
 | Service | Fact | Confidence |
 |---|---|---|
-| Gemini API | Free-tier limits are per account and shown only in AI Studio; the official docs page lists no free numbers. Recommended models for new projects: `gemini-3.5-flash-lite`, `gemini-3.8-flash`. 2.5 models are restricted to previous users. | Model list official. Free limits (~10 RPM / ~500 RPD for Flash-Lite) come only from third-party sites: **unverified**; check `aistudio.google.com/rate-limit`. |
+| Gemini API | Free-tier limits are per account and shown only in AI Studio; the official docs page lists no free numbers. Recommended models for new projects: `gemini-3.5-flash-lite`, `gemini-3.8-flash`. 2.5 models are restricted to previous users. | Model list official. **Verified in my AI Studio account (2026-10-27):** free tier per model: `gemini-3.5-flash-lite` and `gemini-3.1-flash-lite` = 15 RPM, 250K TPM, 500 RPD each; `gemini-3.8-flash` = 5 RPM, 20 RPD (third-party sites said 10 RPM for Flash-Lite). Limits are per project and per model. |
 | Qdrant Cloud | Free cluster: 0.5 vCPU, 1 GB RAM, 4 GB disk, single node. Suspended after 1 week unused, deleted after 4 weeks if not reactivated. | Official docs. |
 | Hugging Face Spaces | Docker/Gradio Spaces now require PRO. Free accounts: static Spaces, or up to 2 Gradio Spaces on ZeroGPU. | Official docs; start date (Jul vs Aug 2026) conflicts between secondary sources. |
 | Render free | Spins down after 15 min idle (~1 min cold start), 750 instance-hours/month, ephemeral filesystem, no persistent disk. | Official docs. RAM **512 MB is unverified** (from a Render article, not the docs) → measured in milestone 1. |
@@ -40,10 +40,14 @@ Browser ──> Render container
               └─ LLMGateway ──> Gemini (primary) / OpenAI (fallback, judge)
                      │                └─> OpenAI embeddings (query + ingest)
                      └─> Qdrant Cloud (chunks collection + documents registry)
-GitHub Actions: CI (offline tests) · daily keep-alive /health · manual live eval
+GitHub Actions: CI (offline tests) · daily keep-alive /health/deep · manual live eval
 ```
 
-**Keep-alive:** a daily GitHub Actions cron calls `/health`, which runs a real Qdrant query. This prevents the 1-week Qdrant pause. I do not keep Render awake artificially; the cold start is documented. (GitHub disables scheduled workflows in inactive repos after a while — not re-verified; noted in README.)
+**Memory measured (M1, 2026-10-27):** Docker container capped at 512 MB / 0.5 CPU, after model warm-up (BM25 + 30-candidate rerank) and a UI page load: 290 MiB container memory (process RSS 350 MB), no OOM. Under the 400 MB target → Render confirmed. Image size 1.53 GB, models baked in.
+
+**Health checks:** `/health` is liveness only (no external calls; Render's health check). `/health/deep` makes a real Qdrant call and returns 503 if it fails.
+
+**Keep-alive:** a daily GitHub Actions cron calls `/health/deep`, so Qdrant sees real traffic. This prevents the 1-week Qdrant pause. I do not keep Render awake artificially; the cold start is documented. (GitHub disables scheduled workflows in inactive repos after a while — not re-verified; noted in README.)
 
 **Secrets:** `.env` locally (gitignored), `.env.example` committed with empty values, Render environment variables in production, GitHub Secrets for the live-eval workflow. Settings are loaded with `pydantic-settings`; the app fails fast if a required key is missing.
 
@@ -69,7 +73,7 @@ GitHub Actions: CI (offline tests) · daily keep-alive /health · manual live ev
 
 **Chosen:** own gateway over LangChain chat models.
 
-**Roles in config:** `planner`, `answer`, `grader` → Gemini (`gemini-3.5-flash-lite`); `fallback` → `gpt-5-nano`; `judge` (eval only) → OpenAI (`gpt-5-mini` candidate).
+**Roles in config:** `planner`, `answer` → `gemini-3.5-flash-lite`; `grader` (grading + claim extraction, the highest-volume role) → `gemini-3.1-flash-lite`, because free limits are per model, so this doubles the free daily budget to ~1,000 calls; `fallback` → `gpt-5-nano`; `judge` (eval only) → OpenAI (`gpt-5-mini` candidate).
 
 **Call path:** `invoke(role, messages, schema=None, tools=None)`
 1. Cache lookup — SQLite table, key = SHA-256 of (provider, model, messages, params, schema version). Temperature 0. Makes evaluation repeatable and cheap to re-run.

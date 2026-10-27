@@ -8,9 +8,9 @@ llm:
   answer:
     provider: gemini
     name: gemini-3.5-flash-lite
-  grader:
+  grader:  # separate model = separate free daily quota
     provider: gemini
-    name: gemini-3.5-flash-lite
+    name: gemini-3.1-flash-lite
   fallback:
     provider: openai
     name: gpt-5-nano
@@ -22,6 +22,12 @@ embeddings:
   provider: openai
   name: text-embedding-3-small
   dimensions: 1536
+
+local_models:  # ONNX models run in-process via fastembed (no PyTorch)
+  cache_dir: .cache/models  # relative to project root; filled at Docker build time
+  threads: 1  # Render free has ~0.5 vCPU; more threads only add memory
+  sparse: Qdrant/bm25
+  reranker: Xenova/ms-marco-MiniLM-L-6-v2
 
 dataset:
   hf_name: hotpotqa/hotpot_qa
