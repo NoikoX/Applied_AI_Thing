@@ -1,0 +1,9 @@
+# USD per 1M tokens, used for cost logging only.
+# OpenAI: official pricing page, checked 2026-10-27.
+# Gemini: we use the free tier, so the cost to us is 0 (paid prices not verified).
+gpt-5-nano: {input: 0.05, output: 0.40}
+gpt-5-mini: {input: 0.25, output: 2.00}
+text-embedding-3-large: {input: 0.13, output: 0.0}
+text-embedding-3-small: {input: 0.02, output: 0.0}
+gemini-3.5-flash-lite: {input: 0.0, output: 0.0}
+gemini-3.1-flash-lite: {input: 0.0, output: 0.0}

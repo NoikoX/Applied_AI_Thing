@@ -85,6 +85,16 @@ GitHub Actions: CI (offline tests) · daily keep-alive /health/deep · manual li
 
 **Trade-offs:** a fallback model behaves differently → evaluation records the answering provider and fallback runs are reported separately.
 
+**As built (M7):**
+- The SDKs' own retries are switched off (`max_retries=0`); `llm/retry.py` is the only retry policy, shared with the embedder.
+- Errors are classified into **retry** (429 rate limit, 408/5xx, timeouts, connection, unparseable structured output), **quota** (429 mentioning per-day limits, `insufficient_quota`, billing or an inactive account: never retried, go straight to fallback) and **fatal** (400/401/403/404: never retried). This came from a real incident in M4: OpenAI's "account is not active" 429 was retried 5 times by the SDK.
+- Backoff: base × 2^(attempt−1), capped, with 50–100 % jitter; the provider's own retry delay (Retry-After header, or Gemini's "retry in 23s") is used when given, also capped.
+- Rate limiter: sliding one-minute window plus a per-day counter that resets at midnight Pacific (Gemini's reset). In memory, so it restarts with the process; the provider's own 429 is still classified as quota.
+- Judge never falls back (a different grader would change grades); `fallback` has nothing to fall back to.
+- GPT-5 models only accept their default temperature, so `temperature: null` omits it; `reasoning_effort` is minimal for the fallback, low for the judge.
+- Live check: all five roles, structured output (Gemini planner) and a tool call worked; a cached repeat took 0.2 ms.
+- Memory in a 512 MB / 0.5 CPU container with both providers and the embedder loaded: **383 MB** RSS (was 344 MB without). Headroom is shrinking: LangGraph and per-request memory still to come.
+
 **Interview defense:** "Free tiers fail with 429s, so quota handling is a first-class concern: limit before calling, back off when told, fall back when stuck, and cache so evaluation never pays twice. Every call is logged with tokens and cost, which is how I report LLM costs."
 
 ---

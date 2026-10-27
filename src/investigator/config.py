@@ -35,15 +35,27 @@ class Secrets(BaseSettings):
 class ModelSpec(BaseModel):
     provider: Literal["gemini", "openai"]
     name: str
+    temperature: float | None = 0.0  # None: let the model use its default
+    reasoning_effort: str | None = None
+
+
+class RetryConfig(BaseModel):
+    max_attempts: int
+    backoff_base_s: float
+    backoff_max_s: float
 
 
 class LLMConfig(BaseModel):
-    temperature: float = 0.0
     planner: ModelSpec
     answer: ModelSpec
     grader: ModelSpec
     fallback: ModelSpec
     judge: ModelSpec
+    timeout_s: float
+    retry: RetryConfig
+    cache_path: str
+    log_path: str
+    rate_limits: dict[str, tuple[int, int]]  # model -> (requests per minute, per day)
 
 
 class EmbeddingConfig(BaseModel):

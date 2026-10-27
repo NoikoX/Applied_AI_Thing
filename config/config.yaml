@@ -1,22 +1,21 @@
 # Non-secret configuration. Model names live here only (see docs/DECISIONS.md).
 
 llm:
-  temperature: 0.0
-  planner:
-    provider: gemini
-    name: gemini-3.5-flash-lite
-  answer:
-    provider: gemini
-    name: gemini-3.5-flash-lite
-  grader:  # separate model = separate free daily quota
-    provider: gemini
-    name: gemini-3.1-flash-lite
-  fallback:
-    provider: openai
-    name: gpt-5-nano
-  judge:  # evaluation only
-    provider: openai
-    name: gpt-5-mini
+  # temperature: 0 for repeatable answers; null = do not send it (GPT-5 models only accept
+  # their default). reasoning_effort applies to OpenAI reasoning models only.
+  planner: {provider: gemini, name: gemini-3.5-flash-lite, temperature: 0.0}
+  answer: {provider: gemini, name: gemini-3.5-flash-lite, temperature: 0.0}
+  grader: {provider: gemini, name: gemini-3.1-flash-lite, temperature: 0.0}  # own free quota
+  fallback: {provider: openai, name: gpt-5-nano, temperature: null, reasoning_effort: minimal}
+  judge: {provider: openai, name: gpt-5-mini, temperature: null, reasoning_effort: low}  # eval only
+  timeout_s: 60
+  retry: {max_attempts: 4, backoff_base_s: 2.0, backoff_max_s: 30.0}
+  cache_path: .cache/llm_responses.sqlite
+  log_path: logs/llm_calls.jsonl
+  # Free-tier limits per model [requests/minute, requests/day], read in AI Studio 2026-10-27.
+  rate_limits:
+    gemini-3.5-flash-lite: [15, 500]
+    gemini-3.1-flash-lite: [15, 500]
 
 embeddings:
   provider: openai
@@ -26,7 +25,7 @@ embeddings:
   comparison_name: text-embedding-3-small
   dimensions: 1536
   batch_size: 256  # texts per API request
-  max_retries: 5  # the OpenAI SDK retries 429/5xx/timeouts with exponential backoff
+  max_retries: 5  # our retry policy (src/investigator/llm/retry.py); the SDK's own retries are off
 
 index:
   chunking_strategy: paragraph  # collections are named chunks_<strategy> and docs_<strategy>
