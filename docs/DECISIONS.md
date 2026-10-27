@@ -216,7 +216,10 @@ GitHub Actions: CI (offline tests) · daily keep-alive /health/deep · manual li
 
 - **IDs:** corpus `doc_id = "hp_" + content hash`; upload `doc_id = "up_" + hash(lower-cased file name)`, so re-uploading a file with the same name is an update; `chunk_id = UUID5(fixed namespace, doc_id:chunk_index)` (Qdrant needs UUID or int IDs) → re-ingesting is idempotent.
 - **Add:** hash check → chunk → embed → upsert chunks + registry entry.
-- **Update:** delete chunks by `doc_id` filter, upsert new ones, increment `version`.
+- **Update:** upsert the new chunks with `version + 1` (deterministic IDs overwrite old chunks in place), then delete this document's chunks with a lower version. The document is never left with zero chunks, and a crash midway is fixed by re-running. An unchanged document (same content hash) is skipped without re-embedding.
+- **Chunking per document type:** corpus paragraphs use the collection's strategy (the one under evaluation); uploads always use the upload strategy (C).
+- **Collections:** `chunks_<strategy>` (named vectors `dense` + `bm25`, payload indexes on `doc_id` and `version`) and `docs_<strategy>` (registry, payload-only). The embedding model and dimension are stored in the collection metadata; startup refuses a collection built with another model.
+- **Bulk corpus ingest:** one embedding request per 256 documents; skips the per-document duplicate lookups, which is safe because corpus IDs are content hashes.
 - **Delete:** remove chunks and registry entry.
 - **Dedup (hand-written):** exact — SHA-256 of normalized text, checked before indexing; near-duplicate — if a new chunk's top-1 dense neighbour has cosine > 0.95, store it as `duplicate_of` instead of indexing it again. Counts reported at ingest.
 

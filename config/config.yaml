@@ -22,6 +22,12 @@ embeddings:
   provider: openai
   name: text-embedding-3-small
   dimensions: 1536
+  batch_size: 256  # texts per API request
+  max_retries: 5  # the OpenAI SDK retries 429/5xx/timeouts with exponential backoff
+
+index:
+  chunking_strategy: paragraph  # collections are named chunks_<strategy> and docs_<strategy>
+  near_duplicate_threshold: 0.95  # cosine similarity above which a new chunk is not indexed again
 
 local_models:  # ONNX models run in-process via fastembed (no PyTorch)
   cache_dir: .cache/models  # relative to project root; filled at Docker build time

@@ -50,6 +50,16 @@ class EmbeddingConfig(BaseModel):
     provider: Literal["openai"]
     name: str
     dimensions: int
+    batch_size: int
+    max_retries: int
+
+
+ChunkingStrategy = Literal["paragraph", "sentence_window", "recursive"]
+
+
+class IndexConfig(BaseModel):
+    chunking_strategy: ChunkingStrategy
+    near_duplicate_threshold: float
 
 
 class LocalModelsConfig(BaseModel):
@@ -70,7 +80,7 @@ class RecursiveConfig(BaseModel):
 
 
 class ChunkingConfig(BaseModel):
-    upload_strategy: Literal["paragraph", "sentence_window", "recursive"]
+    upload_strategy: ChunkingStrategy
     sentence_window: SentenceWindowConfig
     recursive: RecursiveConfig
 
@@ -88,6 +98,7 @@ class DatasetConfig(BaseModel):
 class AppConfig(BaseModel):
     llm: LLMConfig
     embeddings: EmbeddingConfig
+    index: IndexConfig
     local_models: LocalModelsConfig
     chunking: ChunkingConfig
     dataset: DatasetConfig

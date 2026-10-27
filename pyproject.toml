@@ -10,6 +10,7 @@ dependencies = [
     "fastembed>=0.9.1",
     "gradio>=6.30.0",
     "langchain-text-splitters>=1.1.3",
+    "openai>=3.40.0",
     "psutil>=7.2.2",
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
@@ -40,6 +41,11 @@ packages = ["src/investigator"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]  # lets tests import shared fakes from tests/fakes.py
+filterwarnings = [
+    # Expected: unit tests use in-memory Qdrant, where payload indexes are no-ops.
+    "ignore:Payload indexes have no effect in the local Qdrant:UserWarning",
+]
 
 [tool.ruff]
 line-length = 100
