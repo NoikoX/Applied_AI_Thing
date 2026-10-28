@@ -9,8 +9,9 @@ All numbers come from committed result files in `eval/results/` and can be repro
 | Best retrieval (500 test questions) | `text-embedding-3-large` + hybrid weighted fusion: **Recall@5 0.845, both gold paragraphs in top 10: 0.834, MRR 0.942** |
 | Best answering (42 golden questions) | Baseline RAG + Gemini 3.5 Flash-Lite: **39/42 correct (0.929, 95 % CI 0.81–0.98)**, all 6 unanswerable refused, 4/4 injections resisted |
 | Biggest single lever | the **generator model**: on the same retrieval, correctness ranged from 0.48 (gpt-5-nano) to 0.93 (Gemini Flash-Lite) |
-| Where it fails | with Gemini, **every failure was a retrieval miss** (the needed paragraph never reached the model); with gpt-5-mini, most failures were **decisions** (answering unanswerable questions from its own memory, mislabelling contradictions) |
-| What the agent adds | a second search round finds "bridge" entities the question never names (86 % of single-pass retrieval misses); it improved the weaker model on unanswerable and contradictory questions, at ~6× the LLM calls |
+| Where it fails | for the baseline with Gemini, **every failure was a retrieval miss** (the needed paragraph never reached the model); the agent fixed those misses but made 3 decision errors instead; with gpt-5-mini, most failures were **decisions** (answering unanswerable questions from its own memory, mislabelling contradictions) |
+| What the agent adds | same overall score as the baseline with Gemini (0.929 each) but a different profile: it **flagged all 6 contradictions** (baseline 4/6) because its second search round retrieved the evidence the baseline missed (evidence recall 0.977 vs 0.931), while it **lost 2 bridge questions** to decision errors; ~6× the LLM calls |
+| Live demo without the reranker | **no loss on the golden set**: 39/42, same as with the reranker (the reranker was dropped to fit the 512 MB host) |
 
 ## 2. Setup
 
@@ -69,14 +70,18 @@ Generators: Gemini 3.5 Flash-Lite (planner, answer) and 3.1 Flash-Lite (grader) 
 | baseline + gpt-5-mini | 0.786 (0.64–0.88) | 1.00 | 0.78 | 0.88 | 0.50 | 0.50 | 1.00 | 0.75 / 0.50 | 0.95 |
 | agent + gpt-5-nano | 0.548 (0.40–0.69) | 0.89 | 0.44 | 0.38 | 1.00 | 0.17 | 0.25 | 0.29 / 1.00 | 5.4 |
 | baseline + gpt-5-nano | 0.476 (0.33–0.62) | 0.89 | 0.33 | 0.38 | 1.00 | 0.00 | 0.00 | 0.22 / 1.00 | 0.95 |
-| agent + Gemini | *pending* | | | | | | | | |
-| baseline + Gemini, deployed retrieval (no reranker) | *pending* | | | | | | | | |
+| **agent + Gemini** ¹ | **0.929** (0.81–0.98) | 1.00 | 0.67 | 1.00 | 1.00 | **1.00** | 1.00 | 0.86 / 1.00 | 5.8 |
+| baseline + Gemini, **deployed retrieval** (no reranker) | **0.929** (0.81–0.98) | 1.00 | 0.89 | 1.00 | 1.00 | 0.67 | 1.00 | 0.75 / 1.00 | 1.0 |
+
+¹ During this run Google returned "503 UNAVAILABLE: model overloaded" for `gemini-3.1-flash-lite` 47 times; after four attempts each, the gateway handed the **grader role** (grading and claim extraction) to the gpt-5-mini fallback 48 times, affecting 25 of 42 questions. Planning and answering stayed on Gemini 3.5 Flash-Lite. This is the fallback path working as designed, but it means this row's grader is mixed.
 
 Grounding: the judge found **97–100 % of claims supported** by their cited passage in every configuration; citations to passages that were never shown are removed in code before an answer is returned. Citation precision 0.77–0.93, recall 0.82–0.95.
 
 **Latency and cost.** On the evaluation day Gemini took 15–50 s per call (normally ~1 s; no errors), so baseline answers took ~2–14 s and agent answers 1–4 min. With gpt-5-mini: ~4 s (baseline) and ~9 s (agent) per question. A full agent run on 42 questions cost $0.018 (nano) and ~$0.05 (mini); Gemini is free; judging costs ~$0.01 per run.
 
-With 42 questions one question is 2.4 points and the intervals above overlap for every pair except Gemini vs nano: **the model ranking is clear, the baseline-vs-agent difference is not statistically established at this size.**
+With 42 questions one question is 2.4 points and the intervals above overlap for every pair except Gemini vs nano: **the model ranking is clear, the baseline-vs-agent difference is not statistically established at this size.** Agent and baseline with Gemini tie at 39/42 but fail on different questions (section 5).
+
+**Deployed setting.** The live demo runs without the cross-encoder (memory limit). On the golden set this made no difference: 39/42 with and without it; the failures are the same three questions (G01, G28, G29), with G01 now answered with a "not stated" text instead of a refusal status.
 
 ## 5. Failure analysis
 
@@ -101,9 +106,17 @@ All three are the **unnamed bridge entity** problem from section 3. The model be
 
 **gpt-5-nano: over-refusal.** 21–27 refusals where 6 were expected, including simple comparisons and every injection question. Its perfect unanswerable score is a side effect of refusing almost everything.
 
-**Where the agent helped:** on G28 with gpt-5-mini, the second search round retrieved both the university paragraph and the archive record (evidence recall 0 → 1), and the claim check surfaced both values. Evidence recall rose overall (0.931 → 0.963).
+**Agent + Gemini: 3 failures, all decisions** (different questions from the baseline's).
 
-**Where the agent hurt:** extra steps add chances for a weak grader to stop too early or for a false contradiction; it also makes 5–7 LLM calls per question instead of one.
+| ID | What happened |
+|---|---|
+| G01 | All evidence retrieved this time (evidence recall 1.0, the baseline's miss was fixed by the second round), but the answer step still said the sources do not state the area and refused. |
+| G02 | "Donald Duck" instead of "Donna": the right paragraphs were retrieved; the answer picked the more famous duck. |
+| G09 | Flagged a contradiction that is not there ("Washington metropolitan area" vs a more specific place); one gold paragraph was missing. |
+
+**Where the agent helped:** with Gemini it flagged **all six** contradictory questions; G28 and G29, the baseline's two retrieval misses, were fixed by the second search round (evidence recall 0.931 → 0.977). With gpt-5-mini, G28 went from evidence recall 0 to 1 the same way.
+
+**Where the agent hurt:** extra steps add chances for a premature refusal (G01) or a false contradiction (G09); it makes 5–7 LLM calls per question instead of one, and on the slow evaluation day it took ~80 s per question vs ~17 s.
 
 **The evaluation found a bug in the evaluation set.** G20 was built as unanswerable, but two other paragraphs state the answer as "Prime-*Time* Players" (hyphenated); the safety check compared exact words. The baseline answered it correctly with valid citations. The check now ignores punctuation, G20 was dropped, and the other deleted-evidence questions were re-verified. Lesson: unanswerability needs a fuzzier check than phrase search, ideally a human pass over every candidate.
 
@@ -114,7 +127,7 @@ All three are the **unnamed bridge entity** problem from section 3. The model be
 3. **Contradiction status from code, not the model's label:** when the answer text itself reports two values for one fact, or the claim check finds a conflict on a cited source, set "contradictory" regardless of the model's label (fixes agent G28-type failures).
 4. **Comparison questions:** extract the compared values as structured claims and compare them in code (dates, counts) instead of letting the model decide "earlier/more".
 5. **Bigger golden set** (100+ questions) to separate baseline vs agent with statistical confidence.
-6. **Production retrieval without the reranker** (forced by the 512 MB host) should be evaluated end to end; see the pending row.
+6. **Combine the two systems' strengths:** the agent finds evidence and flags contradictions better; the baseline makes fewer decision errors on bridge questions. A cheap rule (run the agent's second search round, but let the final answer step see the baseline's single-pass answer as a check) is the next experiment.
 
 ## 7. Limitations of this evaluation
 
@@ -123,7 +136,8 @@ All three are the **unnamed bridge entity** problem from section 3. The model be
 - **LLM judge:** gpt-5-mini also produced the "mini" answers (self-grading risk). The headline uses the judge only for answer equivalence; string metrics (contains, F1, citations) are reported next to it. The judge never rejected an answer that contained the gold string; in every configuration its only disagreements with "contains" (2–3 per run) were answers it accepted although the string did not match, such as "Phil Mogg" for the gold "Phillip John Mogg" or a paraphrase of "killed her abusive husband", which is the judge's purpose.
 - **Synthetic conflicts are simple:** one changed number in a restated sentence. Real conflicting sources are messier.
 - **HotpotQA noise:** some gold answers are odd (one golden question was dropped for that reason).
-- **The deployed demo differs:** it runs without the reranker to fit Render's 512 MB (see `docs/DEPLOYMENT.md`).
+- **The deployed demo differs:** it runs without the reranker to fit Render's 512 MB (see `docs/DEPLOYMENT.md`); measured on the golden set it scores the same (39/42).
+- **Provider outages affect runs:** in the agent + Gemini run the grader partly ran on the fallback model (see the footnote in section 4).
 - **Provider variability:** Gemini latency varied 20–50× between two days; latency figures describe the evaluation days only.
 
 ## 8. Reproduce

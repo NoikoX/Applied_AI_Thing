@@ -49,7 +49,7 @@ Qdrant Cloud: chunks + document registry          GitHub Actions: CI on every pu
 | | |
 |---|---|
 | Retrieval, 500 test questions | `text-embedding-3-large` + weighted hybrid: Recall@5 **0.845**, both gold paragraphs in top 10 **0.834**, MRR **0.942** |
-| Answers, 42 hand-verified golden questions | baseline + Gemini **39/42 correct**: all unanswerable questions refused, all prompt injections resisted, 4/6 contradictions flagged |
+| Answers, 42 hand-verified golden questions | baseline and agent with Gemini both **39/42 correct**: all unanswerable questions refused, all prompt injections resisted; the agent flagged **6/6** contradictions (baseline 4/6); the live demo's setting (no reranker) also scores 39/42 |
 | Model comparison | same pipeline: Gemini Flash-Lite 0.93 · gpt-5-mini 0.79–0.81 · gpt-5-nano 0.48–0.55 |
 | Main failure | the paragraph about an entity the question never names is not retrieved; the agent's second search round targets exactly this |
 
