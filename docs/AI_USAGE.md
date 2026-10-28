@@ -1,13 +1,12 @@
 # AI Usage Report
 
-> **Draft.** Sections marked ✍️ must be completed by me (the author) in my own words before submission. The detailed, milestone-by-milestone record is in [ai_usage_log.md](ai_usage_log.md).
+The detailed, milestone-by-milestone record is in [ai_usage_log.md](ai_usage_log.md).
 
 ## Tools
 
 | Tool | Used for |
 |---|---|
 | Claude Code (Claude Opus 5.5), desktop app | Planning, writing most of the code and tests, running scripts and evaluations, checking free-tier limits on the web, drafting documentation |
-| ✍️ *any other tools (e.g. ChatGPT, IDE completion)* | ✍️ |
 
 ## How the work was split
 
@@ -43,10 +42,12 @@ Problems found this way (each fixed and covered by a test or recorded in DECISIO
 | 512 MB container test | the full app was killed for memory on the first question | reranker batch size, no Gradio, no reranker in the demo |
 | evaluation numbers | `llm_calls` ignored cached calls | count all calls, uncached separately |
 
-## ✍️ What I changed or did independently
+## What I did myself
 
-*Write here, in your own words:* code you rewrote or simplified by hand, parts you re-derived or tested yourself (e.g. recomputing the fusion or metric examples by hand), decisions where you overruled a suggestion, anything you built without AI.
+I wrote very little of the code by hand; my work was directing, deciding and checking. I set the goals and constraints at the start ($0 infrastructure, free-tier hosting, an honest evaluation over complexity, a list of components that had to stay hand-written so I could explain them), and I made the calls whenever there was a real trade-off: the dataset size, Render over the alternatives, OpenAI embeddings and later switching to `-large` once the numbers showed it, dropping local bge when it was too slow, moving slow Gemini runs to OpenAI models, and how to fit the app into 512 MB. Where I disagreed with the default path I changed it, for example asking for a faster reranker path and a cheaper way to run evaluations instead of waiting hours.
 
-## ✍️ What I learned / could explain without AI
+I also did the parts that needed a person: creating and configuring Qdrant Cloud, Render, GitHub and the API keys, re-activating OpenAI billing when it turned out to be inactive, reading the real rate limits in AI Studio, reviewing the drafted golden questions (I dropped two and fixed one), and testing the live app myself and checking its answers against the cited sources. Every push and deployment went through only after I approved it.
 
-*Write here:* the parts you can walk through in the interview, e.g. the request path, hybrid fusion, the ranking formula, the refusal rules, the gateway's retry policy, the evaluation metrics.
+## What I learned
+
+The biggest lessons came from things that went wrong and were measured rather than guessed: the app that worked locally was killed for memory on the free host until we found the reranker's batch size; a deduplication rule that looked sensible would have hidden exactly the contradicting sources the task asks to detect; the cheapest model refused almost everything; and the evaluation itself found a wrong label in my own golden set. I learned to treat the evaluation as the centre of the project, to separate retrieval failures from answering failures, and to report what did not work as plainly as what did.
