@@ -150,9 +150,12 @@ class LLMGateway:
         return result
 
     def _backend(self, spec: ModelSpec) -> ChatBackend:
-        if spec.name not in self._backends:
-            self._backends[spec.name] = self.backend_factory(spec)
-        return self._backends[spec.name]
+        # Keyed by the whole spec, not the name: the judge and the fallback can be the
+        # same model with different settings (reasoning effort) and need separate clients.
+        key = spec.model_dump_json()
+        if key not in self._backends:
+            self._backends[key] = self.backend_factory(spec)
+        return self._backends[key]
 
     def _record(self, role: str, r: LLMResult) -> None:
         u = self.usage

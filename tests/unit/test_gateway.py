@@ -3,14 +3,22 @@ import json
 import pytest
 from pydantic import BaseModel
 
-from investigator.config import load_config
+from investigator.config import ModelSpec, load_config
 from investigator.llm.backends import RawResponse, to_langchain
 from investigator.llm.cache import ResponseCache, cache_key
 from investigator.llm.errors import LLMQuotaExceeded, LLMUnavailable
 from investigator.llm.gateway import LLMGateway
 from investigator.llm.pricing import Pricing
 
-CFG = load_config().llm
+# Distinct model names per role, so a scripted backend can be picked by name.
+CFG = load_config().llm.model_copy(
+    update={
+        "planner": ModelSpec(provider="gemini", name="planner-model"),
+        "answer": ModelSpec(provider="gemini", name="answer-model"),
+        "fallback": ModelSpec(provider="openai", name="fallback-model", temperature=None),
+        "judge": ModelSpec(provider="openai", name="judge-model", temperature=None),
+    }
+)
 PRICING = Pricing.load()
 MESSAGES = [{"role": "user", "content": "Who directed Emmett's Mark?"}]
 
@@ -52,6 +60,26 @@ def make_gateway(scripts: dict, tmp_path=None):
 
 
 PRIMARY, FALLBACK = CFG.answer.name, CFG.fallback.name
+
+
+def test_same_model_with_different_settings_gets_its_own_client():
+    # Regression: judge and fallback were both gpt-5-mini with different reasoning effort,
+    # and a client cache keyed by model name would have shared one client between them.
+    def mini(effort):
+        return ModelSpec(provider="openai", name="gpt-5-mini", temperature=None,
+                         reasoning_effort=effort)  # fmt: skip
+
+    cfg = CFG.model_copy(update={"fallback": mini("minimal"), "judge": mini("low")})
+    created = []
+
+    def factory(spec):
+        created.append(spec.reasoning_effort)
+        return ScriptedBackend([ok()])
+
+    gateway = LLMGateway(cfg, backend_factory=factory, pricing=PRICING, sleep=lambda s: None)
+    gateway.invoke("fallback", MESSAGES)
+    gateway.invoke("judge", MESSAGES)
+    assert created == ["minimal", "low"]
 
 
 def test_successful_call_reports_tokens_and_cost():

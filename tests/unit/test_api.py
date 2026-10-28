@@ -10,7 +10,6 @@ from investigator.index.qdrant_store import ensure_collections
 from investigator.index.registry import DocumentIndex
 from investigator.ingestion.documents import Document, Section
 from investigator.rag.schemas import Citation, RAGAnswer
-from investigator.ui.gradio_app import format_answer
 from tests.fakes import FakeSparse, HashEmbedder
 
 CFG = load_config()
@@ -93,9 +92,20 @@ def test_deep_health_ok_and_503_when_qdrant_down(client):
     assert resp.status_code == 503 and resp.json()["qdrant"] == "unreachable"
 
 
-def test_root_redirects_and_ui_is_served(client):
-    assert client.get("/", follow_redirects=False).headers["location"] == "/ui"
-    assert "text/html" in client.get("/ui/").headers["content-type"]
+def test_web_page_is_served_and_never_renders_server_text_as_html(client):
+    resp = client.get("/")
+    assert resp.status_code == 200 and "text/html" in resp.headers["content-type"]
+    page = resp.text
+    assert "/api/ask" in page and "/api/documents" in page and "/api/status" in page
+    # Document text is untrusted (anyone can upload): the page must insert it as text only.
+    script = page.split("<script>")[1]
+    assert ".innerHTML" not in script and "insertAdjacentHTML" not in script
+
+
+def test_status_endpoint(client):
+    body = client.get("/api/status").json()
+    assert body["qdrant"] == "ok" and body["memory_mb"] > 0
+    assert body["limits"]["ask_per_day_total"] == CFG.app.limits.ask_per_day_total
 
 
 # ---- ask ----------------------------------------------------------------------
@@ -194,13 +204,8 @@ def test_anyone_can_delete_uploads_but_corpus_needs_the_token(client):
 # ---- UI formatting ------------------------------------------------------------------
 
 
-def test_format_answer_marks_cited_sources_and_reasons():
-    a = FixedQA().answer("q")
-    a.warnings = ["something odd"]
-    answer_md, sources_md = format_answer(a)
-    assert "Answered" in answer_md and "[S1]" in answer_md and "something odd" in answer_md
-    assert "**[S1] John Doman** (**cited**" in sources_md
-    refused = RAGAnswer("q", "insufficient_evidence", "Cannot answer.", refusal_reason="no source")
-    answer_md, sources_md = format_answer(refused)
-    assert "Not enough evidence" in answer_md and "no source" in answer_md
-    assert sources_md == "*No sources retrieved.*"
+def test_production_services_skip_the_reranker_when_overridden():
+    from investigator.config import with_overrides
+
+    retrieval = with_overrides(CFG.retrieval, CFG.app.retrieval_overrides)
+    assert retrieval.rerank is False and CFG.retrieval.rerank is True  # eval keeps it on

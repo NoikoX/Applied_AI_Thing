@@ -56,6 +56,7 @@ class LLMConfig(BaseModel):
     cache_path: str
     log_path: str
     rate_limits: dict[str, tuple[int, int]]  # model -> (requests per minute, per day)
+    comparison_generators: dict[str, ModelSpec] = {}  # offline LLM comparison only
 
 
 class EmbeddingConfig(BaseModel):
@@ -121,6 +122,7 @@ class AppLimits(BaseModel):
 
 class AppSettings(BaseModel):
     index_name: str
+    retrieval_overrides: dict = {}
     default_mode: Literal["agent", "baseline"]
     max_upload_mb: float
     limits: AppLimits
@@ -131,6 +133,7 @@ class LocalModelsConfig(BaseModel):
     threads: int | None  # None = all CPU cores (offline evaluation)
     sparse: str
     reranker: str
+    rerank_batch_size: int
 
 
 class SentenceWindowConfig(BaseModel):
@@ -170,6 +173,22 @@ class AppConfig(BaseModel):
     local_models: LocalModelsConfig
     chunking: ChunkingConfig
     dataset: DatasetConfig
+
+
+def _deep_merge(base: dict, overrides: dict) -> dict:
+    merged = dict(base)
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def with_overrides[M: BaseModel](base: M, overrides: dict) -> M:
+    """A copy of a config section with some settings replaced; nested sections merge,
+    and unknown keys raise (the sections forbid extra fields)."""
+    return type(base).model_validate(_deep_merge(base.model_dump(), overrides))
 
 
 def _describe(err: ValidationError) -> str:

@@ -20,7 +20,9 @@ OUT = PROJECT_ROOT / "tests" / "replay" / "cassette.json"
 def main() -> None:
     golden = (PROJECT_ROOT / "eval/golden/golden.jsonl").read_text(encoding="utf-8")
     items = {i["id"]: i for i in map(json.loads, golden.splitlines())}
-    gateway, retriever, _, _ = make_parts("gemini", "golden__large")
+    # A fast model is fine: replay checks that prompts and outcomes do not change,
+    # not which model produced them.
+    gateway, retriever, _, _ = make_parts("mini", "golden__large")
     rec_gateway, rec_retriever = RecordingGateway(gateway), RecordingRetriever(retriever)
 
     expected: dict[str, dict] = {}

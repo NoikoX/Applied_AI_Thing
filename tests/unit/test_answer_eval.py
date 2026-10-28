@@ -44,7 +44,7 @@ def answered(text="John Doman", cited=("d1",), claims=None):
         "Which actor?", "answered", text,
         claims=claims if claims is not None else [{"text": text, "sources": ["S1"]}],
         citations=[by_doc[d] for d in cited], retrieved=retrieved,
-        usage={"model": "m", "input_tokens": 100, "output_tokens": 10, "cost_usd": 0.0},
+        usage={"model": "m", "llm_calls": 1, "input_tokens": 100, "output_tokens": 10},
     )  # fmt: skip
 
 

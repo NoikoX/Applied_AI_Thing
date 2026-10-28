@@ -5,7 +5,7 @@ import sqlite3
 import time
 from pathlib import Path
 
-from investigator.config import RetrievalConfig
+from investigator.config import RetrievalConfig, with_overrides
 from investigator.evaluation.metrics import (
     RetrievedChunk,
     full_support_at_k,
@@ -21,19 +21,9 @@ FULL_KS = (2, 5, 10)
 SENTENCE_KS = (5, 10)
 
 
-def _deep_merge(base: dict, overrides: dict) -> dict:
-    merged = dict(base)
-    for key, value in overrides.items():
-        if isinstance(value, dict) and isinstance(merged.get(key), dict):
-            merged[key] = _deep_merge(merged[key], value)
-        else:
-            merged[key] = value
-    return merged
-
-
 def apply_overrides(base: RetrievalConfig, overrides: dict) -> RetrievalConfig:
     """Config with some settings replaced; nested sections merge, unknown keys raise."""
-    return RetrievalConfig.model_validate(_deep_merge(base.model_dump(), overrides))
+    return with_overrides(base, overrides)
 
 
 class CachedQueryEmbedder:

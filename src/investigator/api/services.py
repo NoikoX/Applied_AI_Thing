@@ -11,7 +11,7 @@ from typing import Protocol
 from qdrant_client import QdrantClient
 
 from investigator.api.limits import LimitExceeded, RequestLimiter
-from investigator.config import AppConfig, AppSettings, Secrets
+from investigator.config import AppConfig, AppSettings, Secrets, with_overrides
 from investigator.index.registry import DocumentIndex, IngestResult
 from investigator.ingestion.loaders import EmptyDocumentError, UnsupportedFormatError, load_bytes
 from investigator.rag.schemas import RAGAnswer
@@ -102,6 +102,22 @@ class Services:
     def list_documents(self, limit: int = 50, offset: str | None = None):
         return self.index.list_documents(limit=min(max(limit, 1), 200), offset=offset)
 
+    def status(self) -> dict:
+        from investigator.api.health import qdrant_is_reachable, rss_mb
+
+        gateway = self.extra_status.get("gateway")
+        usage = gateway.usage if gateway is not None else None
+        return {
+            "qdrant": "ok" if qdrant_is_reachable(self.qdrant) else "unreachable",
+            "memory_mb": round(rss_mb()),
+            "default_mode": self.settings.default_mode,
+            "rerank": self.extra_status.get("rerank"),
+            "llm_calls": usage.calls if usage else 0,
+            "llm_cached_calls": usage.cached_calls if usage else 0,
+            "llm_cost_usd": round(usage.cost_usd, 4) if usage else 0.0,
+            "limits": self.settings.limits.model_dump(),
+        }
+
     def _is_admin(self, token: str | None) -> bool:
         # compare_digest: constant-time, so the token cannot be guessed from response times
         return bool(token) and hmac.compare_digest(token, self.admin_token)
@@ -122,8 +138,9 @@ def build_services(cfg: AppConfig, secrets: Secrets) -> Services:
 
     client = connect(secrets)
     embedder = make_openai_embedder(secrets, cfg.embeddings)
-    local = load_local_models(cfg.local_models)
-    warm_up(local)
+    retrieval_cfg = with_overrides(cfg.retrieval, cfg.app.retrieval_overrides)
+    local = load_local_models(cfg.local_models, with_reranker=retrieval_cfg.rerank)
+    warm_up(local, batch_size=cfg.local_models.rerank_batch_size)
     sparse = BM25Encoder(local.sparse)
     name, strategy = cfg.app.index_name, cfg.index.chunking_strategy
     # Creates empty collections on a fresh cluster, so the app starts before data is loaded.
@@ -137,9 +154,12 @@ def build_services(cfg: AppConfig, secrets: Secrets) -> Services:
         cfg.index.near_duplicate_threshold,
         index_name=name,
     )
-    retriever = HybridRetriever(
-        client, name, cfg.retrieval, embedder, sparse, CrossEncoderReranker(local.reranker)
+    reranker = (
+        CrossEncoderReranker(local.reranker, cfg.local_models.rerank_batch_size)
+        if local.reranker is not None
+        else None
     )
+    retriever = HybridRetriever(client, name, retrieval_cfg, embedder, sparse, reranker)
     gateway = make_gateway(cfg.llm, secrets)
     systems = {
         "agent": InvestigationAgent(Deps(gateway, retriever, cfg.agent, cfg.rag.min_relevance)),
@@ -160,5 +180,5 @@ def build_services(cfg: AppConfig, secrets: Secrets) -> Services:
         upload_limiter=RequestLimiter(
             limits.uploads_per_day_per_client, limits.uploads_per_day_per_client
         ),
-        extra_status={"gateway": gateway},
+        extra_status={"gateway": gateway, "rerank": retrieval_cfg.rerank},
     )

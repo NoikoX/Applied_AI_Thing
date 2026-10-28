@@ -89,7 +89,7 @@ def evaluate_item(system, item: dict, gateway=None) -> dict:
     row["correct"] = item_correct(item, row)
     usage = a.usage or {}
     row |= {
-        "llm_calls": usage.get("llm_calls", 1 if usage.get("model") else 0),
+        "llm_calls": usage.get("llm_calls", 0),  # 0 when refused before any LLM call
         "input_tokens": usage.get("input_tokens", 0),
         "output_tokens": usage.get("output_tokens", 0),
         "cost_usd": usage.get("cost_usd") or 0.0,

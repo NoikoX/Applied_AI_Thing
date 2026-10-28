@@ -1,10 +1,10 @@
 """Evaluate answer quality on the golden set (local Qdrant with the golden index).
 
     uv run python scripts/run_answer_eval.py --system agent --generator gemini
-    uv run python scripts/run_answer_eval.py --system baseline --generator openai
+    uv run python scripts/run_answer_eval.py --system baseline --generator mini
 
---generator gemini uses the configured models; openai runs the planner, answer
-and grader roles on the fallback model (gpt-5-nano) for the LLM comparison.
+--generator gemini uses the configured models; nano or mini run the planner, answer
+and grader roles on that OpenAI model (config llm.comparison_generators).
 Writes eval/results/answers_<system>_<generator>.json, .md and _questions.jsonl.
 Re-runs are cheap: LLM responses are cached on disk.
 """
@@ -34,7 +34,7 @@ def build_system(name: str, generator: str, index: str):
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--system", choices=["baseline", "agent"], required=True)
-    parser.add_argument("--generator", choices=["gemini", "openai"], default="gemini")
+    parser.add_argument("--generator", choices=["gemini", "nano", "mini"], default="gemini")
     parser.add_argument("--index", default="golden__large")
     parser.add_argument("--ids", help="comma-separated golden IDs, for a quick partial run")
     args = parser.parse_args()

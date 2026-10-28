@@ -19,9 +19,10 @@ def main() -> None:
     path = GOLDEN / "golden.jsonl"
     items = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
 
-    unknown = (set(decisions["drop"]) | set(decisions["fix"])) - {i["id"] for i in items}
+    # Re-running on an already reviewed file is fine: dropped IDs are simply absent.
+    unknown = set(decisions["fix"]) - {i["id"] for i in items}
     if unknown:
-        raise SystemExit(f"Review mentions unknown IDs: {sorted(unknown)}")
+        raise SystemExit(f"Review fixes unknown IDs: {sorted(unknown)}")
 
     kept = []
     for item in items:
@@ -34,8 +35,7 @@ def main() -> None:
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         for item in kept:
             f.write(json.dumps(item, ensure_ascii=False) + "\n")
-    print(f"{len(items)} drafted -> {len(kept)} verified ({len(decisions['drop'])} dropped, "
-          f"{len(decisions['fix'])} fixed)")  # fmt: skip
+    print(f"{len(items)} in -> {len(kept)} verified")
 
 
 if __name__ == "__main__":

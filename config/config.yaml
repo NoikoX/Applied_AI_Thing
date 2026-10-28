@@ -6,8 +6,14 @@ llm:
   planner: {provider: gemini, name: gemini-3.5-flash-lite, temperature: 0.0}
   answer: {provider: gemini, name: gemini-3.5-flash-lite, temperature: 0.0}
   grader: {provider: gemini, name: gemini-3.1-flash-lite, temperature: 0.0}  # own free quota
-  fallback: {provider: openai, name: gpt-5-nano, temperature: null, reasoning_effort: minimal}
+  # Fallback was gpt-5-nano until M11, where nano refused 21-27 of 43 golden questions
+  # (7 should be refused); gpt-5-mini is the safety net now. Only used when Gemini fails.
+  fallback: {provider: openai, name: gpt-5-mini, temperature: null, reasoning_effort: minimal}
   judge: {provider: openai, name: gpt-5-mini, temperature: null, reasoning_effort: low}  # eval only
+  # Offline LLM comparison only: run the planner, answer and grader roles on one of these.
+  comparison_generators:
+    nano: {provider: openai, name: gpt-5-nano, temperature: null, reasoning_effort: minimal}
+    mini: {provider: openai, name: gpt-5-mini, temperature: null, reasoning_effort: minimal}
   timeout_s: 60
   retry: {max_attempts: 4, backoff_base_s: 2.0, backoff_max_s: 30.0}
   cache_path: .cache/llm_responses.sqlite
@@ -65,6 +71,11 @@ agent:
 
 app:
   index_name: paragraph  # Qdrant collections the deployed app serves (chunks_<name>, docs_<name>)
+  # Overrides of `retrieval` for the deployed app only; evaluation uses `retrieval` as is.
+  # Render's free 512 MB instance ran out of memory with the reranker loaded (M12), so the
+  # demo runs hybrid weighted fusion without it (M6's best non-reranked setting). Without
+  # reranker scores the "relevance too low" pre-check is skipped; the LLM can still refuse.
+  retrieval_overrides: {rerank: false, selection: topk}
   default_mode: agent  # agent | baseline
   max_upload_mb: 5
   limits:  # protect the free Gemini quota (an agent question uses ~4-7 LLM calls)
@@ -78,6 +89,10 @@ local_models:  # ONNX models run in-process via fastembed (no PyTorch)
   threads: 1  # Render free has ~0.5 vCPU; more threads only add memory
   sparse: Qdrant/bm25
   reranker: Xenova/ms-marco-MiniLM-L-6-v2
+  # Passages scored per model call. fastembed's default (64) put all 30 candidates in one
+  # batch padded to the longest (up to 512 tokens): peak 1,073 MB, OOM on the 512 MB host.
+  # Batch 4: 286 MB peak, same scores (each pair is scored independently).
+  rerank_batch_size: 4
 
 chunking:  # strategies compared in evaluation: paragraph (A) vs sentence_window (B)
   upload_strategy: recursive  # strategy C, for uploaded long documents

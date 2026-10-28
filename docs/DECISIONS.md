@@ -378,6 +378,26 @@ Findings:
 - **Chunking:** A (paragraph) beats B (sentence windows) on every metric (Full@5 0.632 vs 0.598 with rerank), with B also giving less context (600 vs 869 words in the top 10). HotpotQA paragraphs are already short (median 77 words), so splitting them only separates facts from their context. Caveat: compared at equal chunk count, not equal word budget.
 - **Failure analysis** (hybrid weighted, small): 166 / 500 questions miss a gold paragraph in the top 5; 159 are bridge questions. In **143 of the 166 (86%) the missed paragraph is the bridge entity, which the question never names** (e.g. "the philosopher whose philosophy Harry Jaffa developed…" needs *Leo Strauss*). Single-pass retrieval cannot find it; a second retrieval hop that uses what the first paragraph says can. This is the main motivation for the agent (D9).
 
+### M11 answer results (42 golden questions, golden index, reranker on)
+
+| System | Correct | simple | bridge | compar. | unanswerable | contradictory | injection | LLM calls / q |
+|---|---|---|---|---|---|---|---|---|
+| baseline + Gemini 3.5 Flash-Lite | **0.929** | 1.00 | 0.89 | 1.00 | 1.00 | 0.67 | 1.00 | 0.95 |
+| baseline + gpt-5-mini | 0.786 | 1.00 | 0.78 | 0.88 | 0.50 | 0.50 | 1.00 | 0.95 |
+| agent + gpt-5-mini | 0.809 | 1.00 | 0.78 | 0.75 | 0.67 | 0.67 | 1.00 | 5.7 |
+| agent + gpt-5-nano | 0.548 | 0.89 | 0.44 | 0.38 | 1.00 | 0.17 | 0.25 | 5.4 |
+| baseline + gpt-5-nano | 0.476 | 0.89 | 0.33 | 0.38 | 1.00 | 0.00 | 0.00 | 0.95 |
+
+"Correct" per category: unanswerable → refused; contradictory → flagged; injection → right answer and no injected phrase; others → judge says correct and status "answered". Files: `eval/results/answers_*`.
+
+- **Model choice matters more than architecture here.** gpt-5-nano refuses most answerable questions (21–27 refusals for 6 that should be refused); gpt-5-mini answers too readily (refused only 3–4 of 6 unanswerable). Gemini 3.5 Flash-Lite had the best balance. Hence: Gemini stays the generator; the fallback moved from nano to mini.
+- **The agent helps a weaker model on the hard categories** (mini: unanswerable 0.50 → 0.67, contradictory 0.50 → 0.67) at ~6× the LLM calls. **Agent + Gemini is incomplete:** Gemini latency was 15–50 s per call on the evaluation day (no errors), so the run was stopped at 12/43; it resumes from the response cache.
+- **Injection:** every Gemini/mini configuration answered correctly and never output the injected phrase; nano failed 3–4 of 4 (by refusing, not by obeying the injection).
+- **Grounding:** the judge found 97–100 % of claims supported by their cited source in every configuration; citations are verified in code, so unsupported citations are rare by construction. The judge is gpt-5-mini, which also generated the "mini" answers (self-grading risk); string metrics (contains, F1, citations) are reported next to it.
+- **Evaluation-set bug found by the evaluation:** G20 was built as unanswerable, but two other paragraphs state the answer with a hyphen ("Prime-Time" vs "Prime Time"); the safety check matched exact words. The baseline answered it correctly. The check now ignores punctuation, G20 was dropped (43 → 42), and the three other deleted-evidence questions were re-verified.
+- **Costs** (first, uncached runs): baseline nano $0.005, agent nano $0.018, baseline mini $0.025, agent mini ~$0.045 (part of it was cached by an interrupted run); judge ~$0.007–0.018 per run; Gemini free.
+- **Prompt regression in CI:** prompts pinned by fingerprint per version; a recorded cassette (one question per category, baseline and agent, 38 LLM calls, 14 searches) replays both pipelines offline and must reproduce status, answer and citations.
+
 ---
 
 ## D11. UI
@@ -398,6 +418,18 @@ Findings:
 - **UI tabs:** Ask (mode switch, examples, status badge, claims with [S#] labels, all retrieved sources marked cited/retrieved, refusal reason, warnings, search rounds), Documents (upload, list, delete with optional admin token), Status (Qdrant, memory, LLM calls and cost since start, limits).
 - Startup creates empty collections if the cluster has none, so the app runs before data is loaded (M13 copies the vectors in).
 - Tried locally against the golden index: the API answers, refuses the 2030 World Cup question, and the UI shows answer, claims and sources.
+
+**Memory fix before the first full deploy (M12):** the production image in a 512 MB / 0.5 CPU container was OOM-killed on the first question. Measured: idle 419 MB; one question +370 MB. Causes and fixes:
+
+| Cause | Fix | Effect |
+|---|---|---|
+| Reranker scored all 30 passages in one batch padded to the longest (attention memory ∝ batch × length²): 1,073 MB peak in isolation | `rerank_batch_size: 4` (same scores) | 286 MB peak |
+| Gradio UI: ~55 MB at import | replaced by one static HTML + JS page calling the REST API (`ui/static/index.html`); all server text inserted with `textContent`, so uploaded documents cannot inject scripts | −55 MB, image 1.8 → 1.4 GB |
+| Reranker model: ~130 MB | **production only** runs without it (`app.retrieval_overrides: {rerank: false, selection: topk}`); evaluation keeps it | −130 MB |
+| PDF/DOCX/HTML parsers and the text splitter: ~23 MB | imported only when a file is uploaded | −20 MB idle |
+| glibc per-thread arenas | `MALLOC_ARENA_MAX=2` in the image | small |
+
+Result in the 512 MB container against Qdrant Cloud: **idle 206 MB; after 6 questions (2 baseline, 4 agent incl. two-round ones) and a PDF upload 231 MB** (container 187 MiB), no OOM. **Cost of dropping the reranker in production:** the deployed system is not the evaluated one: the low-relevance pre-check is inactive (no reranker scores; the LLM still refuses), and one bridge question the reranked agent answered (*Chikku Bukku* → *The Classic* → Kwak Jae-yong) came back "insufficient evidence" without it. M6 showed reranking raises MRR but not Full@5/10 for weighted fusion, so the retrieval loss should be small; measuring the deployed setting on the golden set is a follow-up.
 
 ---
 

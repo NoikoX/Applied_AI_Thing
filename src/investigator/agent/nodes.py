@@ -281,7 +281,9 @@ def _finish(state: AgentState, result: RAGAnswer, usage: dict, calls: list, note
     llm_calls = _add(state, "llm_calls", *calls)
     trace = _add(state, "trace", {"step": "answer", "status": result.status, "note": note})
     result.usage = usage | {
-        "llm_calls": len([c for c in llm_calls if not c["cached"]]),
+        # All calls the agent made (its workload), and how many actually hit the API.
+        "llm_calls": len(llm_calls),
+        "llm_calls_uncached": len([c for c in llm_calls if not c["cached"]]),
         "input_tokens": sum(c["input_tokens"] for c in llm_calls),
         "output_tokens": sum(c["output_tokens"] for c in llm_calls),
         "cost_usd": sum(c["cost_usd"] or 0.0 for c in llm_calls),

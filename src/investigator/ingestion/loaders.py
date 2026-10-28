@@ -1,13 +1,13 @@
-"""Turn uploaded files (PDF, DOCX, HTML, Markdown, text) and corpus records into Documents."""
+"""Turn uploaded files (PDF, DOCX, HTML, Markdown, text) and corpus records into Documents.
+
+The parser libraries are imported inside the functions that use them: they cost about
+20 MB and are only needed when someone uploads a file (memory matters on the 512 MB host).
+"""
 
 import hashlib
 import io
 import re
 from pathlib import PurePath
-
-import docx
-from bs4 import BeautifulSoup
-from pypdf import PdfReader
 
 from investigator.ingestion.documents import Document, Section
 
@@ -77,6 +77,8 @@ def _clean(text: str) -> str:
 
 
 def _parse_pdf(data: bytes) -> tuple[str | None, list[Section], dict]:
+    from pypdf import PdfReader
+
     reader = PdfReader(io.BytesIO(data))
     sections = [
         Section(_clean(page.extract_text() or ""), page=i)
@@ -95,6 +97,8 @@ def _parse_pdf(data: bytes) -> tuple[str | None, list[Section], dict]:
 
 
 def _parse_docx(data: bytes) -> tuple[str | None, list[Section], dict]:
+    import docx
+
     d = docx.Document(io.BytesIO(data))
     text = "\n\n".join(p.text for p in d.paragraphs if p.text.strip())
     props = d.core_properties
@@ -107,6 +111,8 @@ def _parse_docx(data: bytes) -> tuple[str | None, list[Section], dict]:
 
 
 def _parse_html(data: bytes) -> tuple[str | None, list[Section], dict]:
+    from bs4 import BeautifulSoup
+
     soup = BeautifulSoup(data, "html.parser")
     title = soup.title.get_text(strip=True) if soup.title else None
     for tag in soup(["script", "style", "noscript", "head"]):

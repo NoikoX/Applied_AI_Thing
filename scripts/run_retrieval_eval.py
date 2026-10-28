@@ -55,7 +55,7 @@ def main() -> None:
     local = load_local_models(cfg.local_models.model_copy(update={"threads": None}))
     sparse = BM25Encoder(local.sparse)
     reranker = CachedReranker(
-        CrossEncoderReranker(local.reranker),
+        CrossEncoderReranker(local.reranker, cfg.local_models.rerank_batch_size),
         cfg.local_models.reranker,
         PROJECT_ROOT / ".cache" / "rerank_scores.sqlite",
     )

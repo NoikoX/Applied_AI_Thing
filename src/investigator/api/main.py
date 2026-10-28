@@ -1,19 +1,24 @@
-"""FastAPI application: REST API under /api, Gradio UI mounted at /ui, health checks.
+"""FastAPI application: REST API under /api, the web page at /, health checks.
 
 Production entry point:
     uvicorn investigator.api.main:build_app --factory
+
+The page (ui/static/index.html) is plain HTML + JavaScript calling the REST API.
+It replaced Gradio in M12: Gradio cost ~55 MB on a 512 MB host that ran out of memory.
 """
 
-import gradio as gr
+from pathlib import Path
+
 from fastapi import FastAPI, File, Header, Request, Response, UploadFile
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from investigator.api.health import peak_rss_mb, qdrant_is_reachable, rss_mb
 from investigator.api.limits import client_key
 from investigator.api.schemas import AnswerOut, AskIn, DocumentPage, UploadOut
 from investigator.api.services import ServiceError, Services, build_services
 from investigator.config import load_config, load_secrets
-from investigator.ui.gradio_app import build_ui
+
+INDEX_HTML = Path(__file__).resolve().parents[1] / "ui" / "static" / "index.html"
 
 
 def create_app(services: Services) -> FastAPI:
@@ -80,12 +85,15 @@ def create_app(services: Services) -> FastAPI:
         services.delete(doc_id, x_admin_token)
         return Response(status_code=204)
 
-    @app.get("/", include_in_schema=False)
-    def root() -> RedirectResponse:
-        return RedirectResponse("/ui")
+    @app.get("/api/status")
+    def status() -> dict:
+        return services.status()
 
-    # ssr_mode=False: server-side rendering would start a Node.js process and cost memory.
-    return gr.mount_gradio_app(app, build_ui(services), path="/ui", ssr_mode=False)
+    @app.get("/", include_in_schema=False)
+    def page() -> FileResponse:
+        return FileResponse(INDEX_HTML, media_type="text/html")
+
+    return app
 
 
 def build_app() -> FastAPI:

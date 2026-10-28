@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Investigation Engine</title>
+<style>
+  :root { --bg:#f7f7f8; --card:#fff; --text:#1d1d1f; --muted:#6b6b72; --line:#e3e3e8;
+          --accent:#2f5bea; --ok:#1d7a3d; --warn:#9a6200; --bad:#b42318; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#141416; --card:#1d1d21; --text:#ececf1; --muted:#9a9aa3; --line:#2d2d33;
+            --accent:#7b9bff; --ok:#5fcf8a; --warn:#e8b04a; --bad:#ff7b72; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui, -apple-system, Segoe UI, sans-serif; background:var(--bg); color:var(--text); }
+  main { max-width: 900px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  .muted { color: var(--muted); }
+  nav { display:flex; gap:4px; margin:20px 0 12px; border-bottom:1px solid var(--line); }
+  nav button { background:none; border:none; padding:8px 14px; color:var(--muted); cursor:pointer; font:inherit; border-bottom:2px solid transparent; }
+  nav button.active { color:var(--text); border-bottom-color:var(--accent); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin:12px 0; }
+  textarea, input[type=text], input[type=password], select { width:100%; font:inherit; color:var(--text); background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+  textarea { min-height: 64px; resize: vertical; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px; }
+  .row > * { flex: 1 1 auto; }
+  button.primary, button.plain { font:inherit; border-radius:8px; padding:8px 16px; cursor:pointer; border:1px solid var(--line); background:var(--card); color:var(--text); flex:0 0 auto; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button:disabled { opacity:.6; cursor:wait; }
+  .examples button { font-size:.85rem; margin:4px 6px 0 0; padding:4px 10px; border-radius:14px; border:1px solid var(--line); background:var(--card); color:var(--muted); cursor:pointer; }
+  .badge { display:inline-block; font-weight:600; padding:2px 10px; border-radius:12px; font-size:.85rem; margin-bottom:8px; border:1px solid currentColor; }
+  .answered { color:var(--ok); } .contradictory { color:var(--warn); }
+  .insufficient_evidence, .unavailable, .error { color:var(--bad); }
+  .answer { font-size:1.1rem; margin:4px 0 10px; }
+  .source { border-top:1px solid var(--line); padding:10px 0; }
+  .source .head { font-weight:600; } .source .text { color:var(--muted); font-size:.92rem; }
+  .cited { color:var(--accent); font-size:.8rem; margin-left:6px; }
+  .note { border-left:3px solid var(--warn); padding-left:10px; margin:8px 0; }
+  table { width:100%; border-collapse:collapse; font-size:.88rem; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  code { font-size:.85em; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>AI Investigation Engine</h1>
+  <div class="muted">Questions that need facts from several documents. Answers cite their sources, and the
+    system says so when the documents disagree or do not contain the answer. Corpus: 46k Wikipedia paragraphs
+    (HotpotQA). <a href="/docs">REST API</a></div>
+
+  <nav>
+    <button data-tab="ask" class="active">Ask</button>
+    <button data-tab="documents">Documents</button>
+    <button data-tab="status">Status</button>
+  </nav>
+
+  <section id="tab-ask">
+    <div class="card">
+      <textarea id="question" maxlength="500" placeholder="Ask a question…"></textarea>
+      <div class="examples" id="examples"></div>
+      <div class="row">
+        <select id="mode" style="max-width:340px">
+          <option value="agent">agent: plans, searches in rounds, checks claims (slower)</option>
+          <option value="baseline">baseline: one search, one answer (faster)</option>
+        </select>
+        <button class="primary" id="ask">Ask</button>
+      </div>
+    </div>
+    <div class="card hidden" id="result"></div>
+  </section>
+
+  <section id="tab-documents" class="hidden">
+    <div class="card">
+      <div><b>Upload</b> <span class="muted">PDF, DOCX, HTML, Markdown or text, max 5 MB. Uploading a file with
+        the same name again updates it.</span></div>
+      <div class="row">
+        <input type="file" id="file" accept=".pdf,.docx,.html,.htm,.md,.txt">
+        <button class="primary" id="upload">Upload</button>
+      </div>
+      <div id="upload-msg" class="muted" style="margin-top:8px"></div>
+    </div>
+    <div class="card">
+      <div><b>Delete</b> <span class="muted">Uploaded documents (<code>up_…</code>) can be deleted by anyone;
+        corpus documents need the admin token.</span></div>
+      <div class="row">
+        <input type="text" id="delete-id" placeholder="Document ID">
+        <input type="password" id="token" placeholder="Admin token (optional)">
+        <button class="plain" id="delete">Delete</button>
+      </div>
+      <div id="delete-msg" class="muted" style="margin-top:8px"></div>
+    </div>
+    <div class="card">
+      <div class="row" style="margin-top:0"><b>Documents</b>
+        <button class="plain" id="refresh">Refresh</button><button class="plain" id="next">Next page</button></div>
+      <table><thead><tr><th>ID</th><th>Title</th><th>Format</th><th>Chunks</th><th>Updated</th></tr></thead>
+        <tbody id="docs"></tbody></table>
+    </div>
+  </section>
+
+  <section id="tab-status" class="hidden"><div class="card" id="status">Loading…</div></section>
+</main>
+
+<script>
+// All server text is inserted with textContent (never innerHTML), so uploaded documents
+// cannot inject markup or scripts into this page.
+const EXAMPLES = [
+  "Which Emmett's Mark actor also played in the HBO series The Wire?",
+  "Chikku Bhukku is based on a 2003 movie, which was directed by whom?",
+  "Who was born first, Daphne du Maurier or Pietro di Donato?",
+  "Who won the 2030 FIFA World Cup?",
+];
+const STATUS = { answered: "Answered", contradictory: "Sources disagree",
+  insufficient_evidence: "Not enough evidence in the documents", unavailable: "Temporarily unavailable" };
+const $ = (id) => document.getElementById(id);
+
+function el(tag, text, cls) {
+  const node = document.createElement(tag);
+  if (text !== undefined && text !== null) node.textContent = text;
+  if (cls) node.className = cls;
+  return node;
+}
+
+async function api(path, options = {}) {
+  const resp = await fetch(path, options);
+  const body = resp.status === 204 ? null : await resp.json().catch(() => null);
+  if (!resp.ok) {
+    const detail = body && body.detail;
+    throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail || resp.statusText));
+  }
+  return body;
+}
+
+document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll("nav button").forEach((x) => x.classList.toggle("active", x === b));
+  for (const tab of ["ask", "documents", "status"]) $("tab-" + tab).classList.toggle("hidden", tab !== b.dataset.tab);
+  if (b.dataset.tab === "documents") loadDocs();
+  if (b.dataset.tab === "status") loadStatus();
+}));
+
+for (const q of EXAMPLES) {
+  const b = el("button", q);
+  b.addEventListener("click", () => { $("question").value = q; });
+  $("examples").appendChild(b);
+}
+
+function renderAnswer(a) {
+  const box = $("result");
+  box.replaceChildren();
+  box.classList.remove("hidden");
+  box.appendChild(el("span", STATUS[a.status] || a.status, "badge " + a.status));
+  box.appendChild(el("div", a.answer, "answer"));
+  if (a.claims.length) {
+    box.appendChild(el("b", "Claims and their sources"));
+    const ul = el("ul");
+    for (const c of a.claims) ul.appendChild(el("li", c.text + "  " + c.sources.map((s) => "[" + s + "]").join(" ")));
+    box.appendChild(ul);
+  }
+  if (a.refusal_reason) box.appendChild(el("div", "Why: " + a.refusal_reason, "note"));
+  for (const w of a.warnings) box.appendChild(el("div", w, "note"));
+  if (a.usage && a.usage.hops) {
+    box.appendChild(el("div", `Searched in ${a.usage.hops} round(s): ` + JSON.stringify(a.usage.queries), "muted"));
+  }
+  const cited = new Set(a.citations.map((c) => c.label));
+  box.appendChild(el("h3", "Sources"));
+  if (!a.retrieved.length) box.appendChild(el("div", "No sources retrieved.", "muted"));
+  for (const s of a.retrieved) {
+    const div = el("div", null, "source");
+    const head = el("div", `[${s.label}] ${s.title}`, "head");
+    head.appendChild(el("span", cited.has(s.label) ? "cited" : "retrieved", "cited"));
+    div.append(head, el("div", s.text, "text"), el("div", s.doc_id + (s.page ? `, page ${s.page}` : ""), "muted"));
+    box.appendChild(div);
+  }
+}
+
+async function ask() {
+  const question = $("question").value.trim();
+  const button = $("ask");
+  button.disabled = true;
+  button.textContent = "Thinking…";
+  try {
+    renderAnswer(await api("/api/ask", { method: "POST", headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ question, mode: $("mode").value }) }));
+  } catch (err) {
+    $("result").replaceChildren(el("span", "Error", "badge error"), el("div", err.message));
+    $("result").classList.remove("hidden");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Ask";
+  }
+}
+$("ask").addEventListener("click", ask);
+$("question").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(); } });
+
+let nextOffset = null;
+async function loadDocs(offset = null) {
+  const page = await api("/api/documents?limit=50" + (offset ? "&offset=" + encodeURIComponent(offset) : ""));
+  nextOffset = page.next_offset;
+  $("next").disabled = !nextOffset;
+  $("docs").replaceChildren(...page.documents.map((d) => {
+    const tr = el("tr");
+    for (const v of [d.doc_id, d.title, d.format, d.n_chunks, (d.updated_at || "").slice(0, 16)]) tr.appendChild(el("td", v));
+    return tr;
+  }));
+}
+$("refresh").addEventListener("click", () => loadDocs());
+$("next").addEventListener("click", () => nextOffset && loadDocs(nextOffset));
+
+$("upload").addEventListener("click", async () => {
+  const file = $("file").files[0];
+  if (!file) { $("upload-msg").textContent = "Choose a file first."; return; }
+  const form = new FormData();
+  form.append("file", file);
+  $("upload-msg").textContent = "Uploading…";
+  try {
+    const r = await api("/api/documents", { method: "POST", body: form });
+    $("upload-msg").textContent = `${r.doc_id}: ${r.status}, ${r.n_chunks} chunk(s), ${r.n_near_duplicates} ` +
+      `near-duplicate(s), ${r.n_possible_conflicts} possible conflict(s)` + (r.duplicate_of ? `, duplicate of ${r.duplicate_of}` : "");
+    loadDocs();
+  } catch (err) { $("upload-msg").textContent = "Error: " + err.message; }
+});
+
+$("delete").addEventListener("click", async () => {
+  const id = $("delete-id").value.trim();
+  const headers = $("token").value ? { "X-Admin-Token": $("token").value } : {};
+  try {
+    await api("/api/documents/" + encodeURIComponent(id), { method: "DELETE", headers });
+    $("delete-msg").textContent = "Deleted " + id + ".";
+    loadDocs();
+  } catch (err) { $("delete-msg").textContent = "Error: " + err.message; }
+});
+
+async function loadStatus() {
+  try {
+    const s = await api("/api/status");
+    const ul = el("ul");
+    for (const line of [
+      `Qdrant: ${s.qdrant}`, `Memory: ${s.memory_mb} MB`, `Default mode: ${s.default_mode}`,
+      `Reranker: ${s.rerank ? "on" : "off (saves memory on the free host)"}`,
+      `LLM calls since start: ${s.llm_calls} (${s.llm_cached_calls} from cache), cost $${s.llm_cost_usd}`,
+      `Limits: ${s.limits.ask_per_minute_per_client}/min and ${s.limits.ask_per_day_per_client}/day per visitor, ` +
+        `${s.limits.ask_per_day_total}/day in total`,
+    ]) ul.appendChild(el("li", line));
+    $("status").replaceChildren(ul);
+  } catch (err) { $("status").textContent = "Error: " + err.message; }
+}
+</script>
+</body>
+</html>

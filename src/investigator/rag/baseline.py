@@ -90,6 +90,8 @@ class BaselineRAG:
             "cost_usd": llm.cost_usd,
             "llm_ms": llm.latency_ms,
             "cached": llm.cached,
+            "llm_calls": 1,
+            "llm_calls_uncached": 0 if llm.cached else 1,
             "fell_back": llm.fell_back,
         }
 

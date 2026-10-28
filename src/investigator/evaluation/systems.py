@@ -17,19 +17,20 @@ from investigator.retrieval.search import HybridRetriever
 def make_parts(generator: str, index: str, qdrant_url: str = "http://localhost:6333"):
     """(gateway, retriever, judge_gateway, llm_config) for one generator setting.
 
-    generator "openai" runs the planner, answer and grader roles on the fallback
-    model (the LLM comparison); the judge always uses the configured judge model.
+    generator "gemini" uses the configured roles; any key of llm.comparison_generators
+    ("nano", "mini") runs the planner, answer and grader roles on that model instead
+    (the LLM comparison). The judge always uses the configured judge model.
     """
     cfg, secrets = load_config(), load_secrets()
     llm_cfg = cfg.llm
-    if generator == "openai":
-        fb = cfg.llm.fallback
-        llm_cfg = cfg.llm.model_copy(update={"planner": fb, "answer": fb, "grader": fb})
+    if generator != "gemini":
+        spec = cfg.llm.comparison_generators[generator]
+        llm_cfg = cfg.llm.model_copy(update={"planner": spec, "answer": spec, "grader": spec})
     local = load_local_models(cfg.local_models.model_copy(update={"threads": None}))
     retriever = HybridRetriever(
         QdrantClient(url=qdrant_url, timeout=60), index, cfg.retrieval,
         make_openai_embedder(secrets, cfg.embeddings), BM25Encoder(local.sparse),
-        CrossEncoderReranker(local.reranker),
+        CrossEncoderReranker(local.reranker, cfg.local_models.rerank_batch_size),
     )  # fmt: skip
     return make_gateway(llm_cfg, secrets), retriever, make_gateway(cfg.llm, secrets), llm_cfg
 

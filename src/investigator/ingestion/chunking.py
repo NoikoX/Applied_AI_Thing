@@ -13,8 +13,6 @@ C. recursive:       LangChain's RecursiveCharacterTextSplitter, fixed size with
 import re
 import uuid
 
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-
 from investigator.config import ChunkingConfig
 from investigator.ingestion.documents import Chunk, Document
 
@@ -79,6 +77,9 @@ def sentence_window_chunks(doc: Document, window: int, stride: int) -> list[Chun
 
 
 def recursive_chunks(doc: Document, chunk_size: int, chunk_overlap: int) -> list[Chunk]:
+    # Imported here: only uploads use this splitter, and the library costs memory at import.
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
+
     splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     pieces = [(text, s.page) for s in doc.sections for text in splitter.split_text(s.text)]
     return [
