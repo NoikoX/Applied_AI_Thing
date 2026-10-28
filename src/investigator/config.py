@@ -112,6 +112,20 @@ class AgentConfig(BaseModel):
     max_sources: int
 
 
+class AppLimits(BaseModel):
+    ask_per_minute_per_client: int
+    ask_per_day_per_client: int
+    ask_per_day_total: int
+    uploads_per_day_per_client: int
+
+
+class AppSettings(BaseModel):
+    index_name: str
+    default_mode: Literal["agent", "baseline"]
+    max_upload_mb: float
+    limits: AppLimits
+
+
 class LocalModelsConfig(BaseModel):
     cache_dir: str
     threads: int | None  # None = all CPU cores (offline evaluation)
@@ -152,6 +166,7 @@ class AppConfig(BaseModel):
     retrieval: RetrievalConfig
     rag: RAGConfig
     agent: AgentConfig
+    app: AppSettings
     local_models: LocalModelsConfig
     chunking: ChunkingConfig
     dataset: DatasetConfig

@@ -63,6 +63,16 @@ agent:
   max_queries_per_hop: 3
   max_sources: 10  # passages given to the answer step, merged from all hops
 
+app:
+  index_name: paragraph  # Qdrant collections the deployed app serves (chunks_<name>, docs_<name>)
+  default_mode: agent  # agent | baseline
+  max_upload_mb: 5
+  limits:  # protect the free Gemini quota (an agent question uses ~4-7 LLM calls)
+    ask_per_minute_per_client: 3
+    ask_per_day_per_client: 30
+    ask_per_day_total: 80
+    uploads_per_day_per_client: 10
+
 local_models:  # ONNX models run in-process via fastembed (no PyTorch)
   cache_dir: .cache/models  # relative to project root; filled at Docker build time
   threads: 1  # Render free has ~0.5 vCPU; more threads only add memory

@@ -390,6 +390,15 @@ Findings:
 
 **Chosen:** Gradio in FastAPI. The UI calls the same service layer as the REST API, so there is one code path to test.
 
+**As built (M12):**
+- REST API (`api/main.py`, OpenAPI docs at `/docs`): `POST /api/ask` (question, mode agent|baseline) → status, answer, claims with source labels, cited and retrieved sources, warnings, refusal reason, usage and the agent's trace; `GET /api/documents`, `GET /api/documents/{id}`, `POST /api/documents` (multipart upload; same file name = update), `DELETE /api/documents/{id}`; `/health`, `/health/deep`.
+- **Service layer** (`api/services.py`): validation, limits and permissions in one place for both front ends; errors carry their HTTP status (400, 403, 404, 413, 429).
+- **Limits** (`api/limits.py`, hand-written instead of `slowapi`, so the Gradio UI cannot bypass limits that only wrap HTTP routes): per-client requests per minute and per day, plus a total daily question budget (80) that protects the free Gemini quota; client = first `X-Forwarded-For` address (Render's proxy), forgeable but adequate for a demo. Uploads: 5 MB, 10 per client per day; the file type is checked before the allowance is spent.
+- **Permissions:** anyone may delete uploaded documents (`up_…`); deleting corpus documents (`hp_…`) needs the `X-Admin-Token` header, compared in constant time (`hmac.compare_digest`).
+- **UI tabs:** Ask (mode switch, examples, status badge, claims with [S#] labels, all retrieved sources marked cited/retrieved, refusal reason, warnings, search rounds), Documents (upload, list, delete with optional admin token), Status (Qdrant, memory, LLM calls and cost since start, limits).
+- Startup creates empty collections if the cluster has none, so the app runs before data is loaded (M13 copies the vectors in).
+- Tried locally against the golden index: the API answers, refuses the 2030 World Cup question, and the UI shows answer, claims and sources.
+
 ---
 
 ## Hand-written by me (not delegated to libraries)
