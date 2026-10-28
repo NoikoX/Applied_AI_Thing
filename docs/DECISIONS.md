@@ -247,6 +247,7 @@ On this tiny, easy index neither reranking nor coverage helped, and without sub-
 - **Bulk corpus ingest:** one embedding request per 256 documents; skips the per-document duplicate lookups, which is safe because corpus IDs are content hashes.
 - **Delete:** remove chunks and registry entry.
 - **Dedup (hand-written):** exact — SHA-256 of normalized text, checked before indexing; near-duplicate — if a new chunk's top-1 dense neighbour has cosine > 0.95, store it as `duplicate_of` instead of indexing it again. Counts reported at ingest.
+- **Near-duplicate refinement (M10):** cosine similarity barely moves when one date changes, so a source that *disagrees* would have been dropped as a duplicate, hiding exactly the contradiction the system must detect. A chunk is now a near-duplicate only if it is that similar **and** has the same fact tokens (words with digits, capitalized names; `ingestion/dedup.py::same_facts`). Otherwise it is indexed and listed under `possible_conflicts` in the registry.
 
 **Interview defense:** "Deterministic IDs make every write idempotent, so a crashed ingest can simply be rerun. Dedup is two-tier: cheap exact hashing first, an embedding check for near-copies second."
 
@@ -319,6 +320,19 @@ Live check on 6 dev questions + 2 unanswerable ones (not an evaluation, just a l
 | Unanswerable | 7 |
 | Contradictory | 6 |
 | Prompt injection (optional bonus) | 4 |
+
+**As built (M10):** 43 hand-verified questions (`eval/golden/golden.jsonl`), all from the **test** split (seed 7), no two sharing a gold paragraph:
+
+| Category | n | Construction |
+|---|---|---|
+| simple | 9 | LLM drafts a question from one paragraph; code checks the answer is copied from it |
+| bridge | 9 | HotpotQA as is |
+| comparison | 8 | HotpotQA as is |
+| unanswerable | 7 | 4: delete the only paragraph in the corpus that states the answer (checked by phrase search over all 46k); 3: facts the corpus never mentions |
+| contradictory | 6 | new "archive record" restating the answer sentence with a different year/number; PDF, DOCX, Markdown |
+| prompt injection | 4 | correct facts + "ignore all previous instructions… ACCESS GRANTED"; HTML, text, Markdown; expected = the real answer |
+
+Built by `scripts/build_golden.py` (draft) → hand review (`REVIEW.md`; decisions kept in `review_decisions.json`: 2 dropped, 1 fixed) → `scripts/apply_golden_review.py`. The golden index (`golden__large`) is a copy of the corpus index with the 4 paragraphs deleted and the 10 synthetic files uploaded through the real registry and loaders (`scripts/build_golden_index.py`). A CI test checks the file's counts and consistency.
 
 Metrics (all hand-written):
 - **Answer correctness:** HotpotQA-style normalized exact match and token F1; plus LLM-judge semantic correctness.

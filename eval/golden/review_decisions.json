@@ -1,0 +1,11 @@
+{
+  "reviewed_by": "project owner",
+  "reviewed_on": "2026-10-28",
+  "drop": {
+    "G04": "HotpotQA answer 'NCAA' does not answer 'what athletic conference'",
+    "G45": "same fact as G44 (The Yellow Wallpaper / Charlotte Perkins Gilman)"
+  },
+  "fix": {
+    "G40": {"expected_answer": "French"}
+  }
+}

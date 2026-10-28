@@ -4,7 +4,9 @@ Write path for one document:
   1. Same doc_id and same content hash  -> "unchanged" (nothing re-embedded).
   2. Another doc_id has the same content -> "duplicate" (exact dedup, not indexed).
   3. Chunk, embed (dense + BM25), and drop chunks whose nearest chunk from
-     another document is above the near-duplicate threshold.
+     another document is above the near-duplicate threshold AND states the same
+     facts (numbers, names). A near-copy that changes a fact is kept and flagged
+     as a possible conflict, because hiding it would hide a contradiction.
   4. Upsert chunks with version v, then delete this document's chunks with a
      version below v. Chunk IDs are deterministic, so the upsert overwrites the
      old chunks in place, and the document is never left with zero chunks.
@@ -28,6 +30,7 @@ from investigator.index.qdrant_store import (
 )
 from investigator.index.sparse import SparseEncoder
 from investigator.ingestion.chunking import chunk_document
+from investigator.ingestion.dedup import same_facts
 from investigator.ingestion.documents import Chunk, Document
 
 
@@ -38,6 +41,7 @@ class IngestResult:
     n_chunks: int = 0
     n_near_duplicates: int = 0
     duplicate_of: str | None = None
+    n_possible_conflicts: int = 0  # near-copies with different facts: indexed, and flagged
 
 
 def embedding_text(chunk: Chunk) -> str:
@@ -109,12 +113,19 @@ class DocumentIndex:
         dense = self.dense.embed(texts)
         sparse = self.sparse.embed_documents(texts)
 
-        near_duplicates = {}
+        near_duplicates, possible_conflicts = {}, {}
         if check_near_duplicates:
             for chunk, vector in zip(chunks, dense, strict=True):
-                match = self._near_duplicate_of(vector, doc.doc_id)
-                if match:
-                    near_duplicates[str(chunk.index)] = match
+                match = self._similar_chunk(vector, doc.doc_id)
+                if match is None:
+                    continue
+                match_id, match_text = match
+                # Similar wording but different numbers or names is not a copy: it may be a
+                # source that disagrees, which is exactly what must stay searchable.
+                if same_facts(chunk.text, match_text):
+                    near_duplicates[str(chunk.index)] = match_id
+                else:
+                    possible_conflicts[str(chunk.index)] = match_id
 
         points = [
             self._chunk_point(chunk, d, s, doc, version)
@@ -124,9 +135,15 @@ class DocumentIndex:
         if points:
             self.client.upsert(self.chunks, points)
         self._delete_versions_below(doc.doc_id, version)
-        self._upsert_registry(doc, version, len(points), near_duplicates, existing)
+        self._upsert_registry(
+            doc, version, len(points), near_duplicates, existing, possible_conflicts
+        )
         return IngestResult(
-            doc.doc_id, "updated" if existing else "added", len(points), len(near_duplicates)
+            doc.doc_id,
+            "updated" if existing else "added",
+            len(points),
+            len(near_duplicates),
+            n_possible_conflicts=len(possible_conflicts),
         )
 
     def add_many(self, docs: list[Document], batch_size: int = 256) -> list[IngestResult]:
@@ -209,8 +226,9 @@ class DocumentIndex:
         )
         return points[0].payload if points else None
 
-    def _near_duplicate_of(self, vector: list[float], doc_id: str) -> str | None:
-        """chunk_id of the most similar chunk from another document, if above the threshold."""
+    def _similar_chunk(self, vector: list[float], doc_id: str) -> tuple[str, str] | None:
+        """(chunk_id, text) of the most similar chunk from another document, if its
+        cosine similarity is at or above the near-duplicate threshold."""
         hits = self.client.query_points(
             self.chunks,
             query=vector,
@@ -221,9 +239,10 @@ class DocumentIndex:
                 ]
             ),
             limit=1,
+            with_payload=["text"],
         ).points
         if hits and hits[0].score >= self.threshold:
-            return str(hits[0].id)
+            return str(hits[0].id), hits[0].payload["text"]
         return None
 
     def _delete_versions_below(self, doc_id: str, version: int) -> None:
@@ -271,6 +290,7 @@ class DocumentIndex:
         n_chunks: int,
         near_duplicates: dict[str, str],
         existing: dict | None,
+        possible_conflicts: dict[str, str] | None = None,
     ) -> None:
         now = datetime.now(UTC).isoformat()
         payload = {
@@ -283,6 +303,7 @@ class DocumentIndex:
             "version": version,
             "n_chunks": n_chunks,
             "near_duplicates": near_duplicates,  # chunk index -> chunk_id it duplicates
+            "possible_conflicts": possible_conflicts or {},  # chunk index -> similar chunk_id
             "created_at": existing["created_at"] if existing else now,
             "updated_at": now,
         }

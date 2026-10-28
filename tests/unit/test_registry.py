@@ -2,7 +2,11 @@ import pytest
 from qdrant_client import QdrantClient
 
 from investigator.config import load_config
-from investigator.index.qdrant_store import IndexMismatchError, ensure_collections
+from investigator.index.qdrant_store import (
+    IndexMismatchError,
+    copy_collection,
+    ensure_collections,
+)
 from investigator.index.registry import DocumentIndex
 from investigator.ingestion.chunking import chunk_id_for
 from investigator.ingestion.documents import Document, Section
@@ -107,6 +111,14 @@ def test_near_duplicate_chunk_is_not_indexed_again(index):
     assert index.count_chunks("up_b") == 1
 
 
+def test_near_copy_with_a_different_fact_is_kept_and_flagged(index):
+    index.add(upload("a", LONG))
+    changed = LONG.replace("March", "April")  # same wording, one fact differs
+    result = index.add(upload("b", changed))
+    assert (result.n_chunks, result.n_near_duplicates, result.n_possible_conflicts) == (1, 0, 1)
+    assert index.get("up_b")["possible_conflicts"] == {"0": chunk_id_for("up_a", 0)}
+
+
 def test_near_duplicate_check_ignores_the_document_itself(index):
     index.add(upload("a", LONG))
     result = index.add(upload("a", LONG + " today"))  # an update, not a duplicate
@@ -135,6 +147,19 @@ def test_list_documents_pages_through_registry(index):
     page, next_offset = index.list_documents(limit=2)
     rest, end = index.list_documents(limit=2, offset=next_offset)
     assert len(page) == 2 and len(rest) == 1 and end is None
+
+
+def test_copy_collection_keeps_points_metadata_and_vectors(index):
+    index.add(upload("a", "First paragraph.", "Second paragraph."))
+    target = QdrantClient(":memory:")
+    n = copy_collection(index.client, index.chunks, target, "copy")
+    assert n == 2
+    assert target.get_collection("copy").config.metadata["embedding_model"] == "fake-hash"
+    original = index.client.scroll(index.chunks, limit=10, with_vectors=True)[0]
+    copied = {p.id: p for p in target.scroll("copy", limit=10, with_vectors=True)[0]}
+    for p in original:
+        assert copied[p.id].payload == p.payload
+        assert copied[p.id].vector["dense"] == pytest.approx(p.vector["dense"])
 
 
 def test_collection_built_with_other_model_is_rejected():

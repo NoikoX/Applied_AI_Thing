@@ -1,0 +1,22 @@
+{
+  "base_index": "paragraph__large",
+  "golden_index": "golden__large",
+  "remove_doc_ids": [
+    "hp_3d50f4ae2d0f19ff",
+    "hp_00c9e5be90674fa7",
+    "hp_b6812b495c5dc48e",
+    "hp_0b3406fdd235bbea"
+  ],
+  "uploads": [
+    "G26_archive_ween.pdf",
+    "G27_archive_trinity_laban_conservatoire_of_music_and.docx",
+    "G28_archive_university_of_oklahoma.md",
+    "G29_archive_university_of_nevada_las_vegas.pdf",
+    "G30_archive_kristina_keneally.docx",
+    "G31_archive_karl_benz.md",
+    "G32_notes_philippe_coutinho.html",
+    "G33_notes_juliet_ibrahim.txt",
+    "G34_notes_hamid_karzai_international_airport.html",
+    "G35_notes_seiko_epson.md"
+  ]
+}

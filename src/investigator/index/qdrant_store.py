@@ -42,6 +42,44 @@ def registry_point_id(doc_id: str) -> str:
     return str(uuid.uuid5(REGISTRY_NAMESPACE, doc_id))
 
 
+def copy_collection(
+    source: QdrantClient, src: str, target: QdrantClient, dst: str, batch: int = 256
+) -> int:
+    """Copy a collection (vectors, payloads, metadata, payload indexes), e.g. local -> cloud.
+
+    Re-uses already computed embeddings instead of paying to embed again. The
+    target collection is replaced. Returns the number of points copied.
+    """
+    info = source.get_collection(src)
+    if target.collection_exists(dst):
+        target.delete_collection(dst)
+    target.create_collection(
+        dst,
+        vectors_config=info.config.params.vectors,
+        sparse_vectors_config=info.config.params.sparse_vectors,
+        metadata=info.config.metadata,
+    )
+    for field_name, schema in (info.payload_schema or {}).items():
+        target.create_payload_index(dst, field_name, schema.data_type)
+
+    offset, copied = None, 0
+    while True:
+        points, offset = source.scroll(
+            src, limit=batch, offset=offset, with_payload=True, with_vectors=True
+        )
+        if points:
+            target.upsert(
+                dst,
+                [
+                    models.PointStruct(id=p.id, vector=p.vector or {}, payload=p.payload)
+                    for p in points
+                ],
+            )
+            copied += len(points)
+        if offset is None:
+            return copied
+
+
 def check_embedding_model(
     client: QdrantClient, collection: str, embedding_model: str, dimensions: int
 ) -> None:
