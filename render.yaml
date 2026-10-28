@@ -1,0 +1,22 @@
+# Render Blueprint describing the deployed service (it was created in the dashboard
+# with exactly these settings; see docs/DEPLOYMENT.md). Secret values are entered in
+# Render, never committed: `sync: false` makes Render ask for them.
+services:
+  - type: web
+    name: applied-ai-internship
+    runtime: docker
+    plan: free
+    branch: main
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: ADMIN_TOKEN
+        sync: false
