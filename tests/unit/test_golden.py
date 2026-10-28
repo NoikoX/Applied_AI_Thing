@@ -17,6 +17,13 @@ def test_mentions_whole_phrase_only():
     assert mentions("The WIRE aired on HBO", "the wire")
 
 
+def test_mentions_ignores_punctuation():
+    # Regression (M11, G20): the hyphenated spelling hid a second source.
+    assert mentions('known as the "Not Ready for Prime-Time Players"', "Prime Time Players")
+    assert mentions("based in Washington, D.C.", "Washington D.C")
+    assert not mentions("anything", "")
+
+
 def test_docs_mentioning_checks_title_and_text():
     docs = {"a": {"title": "Milan", "text": "A city."}, "b": {"title": "X", "text": "near milan"}}
     assert docs_mentioning("Milan", docs) == ["a", "b"]

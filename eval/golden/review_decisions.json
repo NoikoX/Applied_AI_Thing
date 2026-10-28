@@ -3,7 +3,8 @@
   "reviewed_on": "2026-10-28",
   "drop": {
     "G04": "HotpotQA answer 'NCAA' does not answer 'what athletic conference'",
-    "G45": "same fact as G44 (The Yellow Wallpaper / Charlotte Perkins Gilman)"
+    "G45": "same fact as G44 (The Yellow Wallpaper / Charlotte Perkins Gilman)",
+    "G20": "found in M11 evaluation: built as unanswerable, but two other paragraphs state the answer as 'Prime-Time Players' (hyphenated), which the exact-match check missed; the baseline answered it correctly"
   },
   "fix": {
     "G40": {"expected_answer": "French"}
