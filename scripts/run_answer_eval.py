@@ -26,8 +26,8 @@ COLUMNS = ["correct", "status_correct", "contains", "f1", "judge_correct", "supp
            "latency_ms"]  # fmt: skip
 
 
-def build_system(name: str, generator: str, index: str):
-    gateway, retriever, judge_gateway, llm_cfg = make_parts(generator, index)
+def build_system(name: str, generator: str, index: str, deployed: bool):
+    gateway, retriever, judge_gateway, llm_cfg = make_parts(generator, index, deployed=deployed)
     return make_system(name, gateway, retriever), judge_gateway, llm_cfg
 
 
@@ -37,6 +37,8 @@ def main() -> None:
     parser.add_argument("--generator", choices=["gemini", "nano", "mini"], default="gemini")
     parser.add_argument("--index", default="golden__large")
     parser.add_argument("--ids", help="comma-separated golden IDs, for a quick partial run")
+    parser.add_argument("--deployed", action="store_true",
+                        help="apply app.retrieval_overrides (what the live demo runs)")  # fmt: skip
     args = parser.parse_args()
 
     golden = (PROJECT_ROOT / "eval/golden/golden.jsonl").read_text(encoding="utf-8")
@@ -44,7 +46,9 @@ def main() -> None:
     if args.ids:
         wanted = set(args.ids.split(","))
         items = [i for i in items if i["id"] in wanted]
-    system, judge_gateway, llm_cfg = build_system(args.system, args.generator, args.index)
+    system, judge_gateway, llm_cfg = build_system(
+        args.system, args.generator, args.index, args.deployed
+    )
 
     rows = []
     for n, item in enumerate(items, start=1):
@@ -63,13 +67,14 @@ def main() -> None:
         "generator": args.generator,
         "models": {r: getattr(llm_cfg, r).name for r in ("planner", "answer", "grader", "judge")},
         "index": args.index,
+        "deployed_retrieval": args.deployed,
         "n_questions": len(items),
         "prompt_versions": [PROMPT_VERSION, JUDGE_PROMPT_VERSION],
         "date": datetime.now(UTC).isoformat(timespec="seconds"),
         "git_commit": commit.stdout.strip(),
     }
     RESULTS.mkdir(parents=True, exist_ok=True)
-    suffix = "_partial" if args.ids else ""
+    suffix = ("_deployed" if args.deployed else "") + ("_partial" if args.ids else "")
     stem = RESULTS / f"answers_{args.system}_{args.generator}{suffix}"
     stem.with_suffix(".json").write_text(json.dumps({"meta": meta, "summary": summary}, indent=2))
     with open(f"{stem}_questions.jsonl", "w", encoding="utf-8", newline="\n") as f:
