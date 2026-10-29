@@ -136,7 +136,7 @@ All three are the **unnamed bridge entity** problem from section 3. The model be
 - **LLM judge:** gpt-5-mini also produced the "mini" answers (self-grading risk). The headline uses the judge only for answer equivalence; string metrics (contains, F1, citations) are reported next to it. The judge never rejected an answer that contained the gold string; in every configuration its only disagreements with "contains" (2–3 per run) were answers it accepted although the string did not match, such as "Phil Mogg" for the gold "Phillip John Mogg" or a paraphrase of "killed her abusive husband", which is the judge's purpose.
 - **Synthetic conflicts are simple:** one changed number in a restated sentence. Real conflicting sources are messier.
 - **HotpotQA noise:** some gold answers are odd (one golden question was dropped for that reason).
-- **The deployed demo differs:** it runs without the reranker to fit Render's 512 MB (see `docs/DEPLOYMENT.md`); measured on the golden set it scores the same (39/42).
+- **The deployed demo differs:** it runs without the reranker to fit Render's 512 MB (see `docs/DEPLOYMENT.md`); measured on the golden set it scores the same (39/42). Without reranker scores the pre-LLM refusal rule "best passage below `min_relevance`" cannot fire (`rag/sufficiency.py`), so in the demo refusals come only from the post-LLM rules (model says insufficient, or no valid citation). In the deployed-setting run these still refused all 6 unanswerable questions.
 - **Provider outages affect runs:** in the agent + Gemini run the grader partly ran on the fallback model (see the footnote in section 4).
 - **Provider variability:** Gemini latency varied 20–50× between two days; latency figures describe the evaluation days only.
 

@@ -29,6 +29,8 @@ All model names below are **config values**, not code. They may change; `config/
 
 **Chosen:** Render free. **Fallback:** Oracle Always Free if milestone-1 memory measurement fails (target: peak RSS < 400 MB under a query).
 
+**Superseded in M12:** Gradio was replaced by a static HTML page and the live demo runs without the cross-encoder, both to fit 512 MB (see the memory fix under D11). The diagram below is the original plan.
+
 **Why:** With OpenAI embeddings, the server only holds BM25 tokenization, a small ONNX cross-encoder, and the app — no PyTorch. All state lives in Qdrant Cloud, so the ephemeral disk does not matter.
 
 **Architecture:**
@@ -321,7 +323,7 @@ Live check on 6 dev questions + 2 unanswerable ones (not an evaluation, just a l
 | Contradictory | 6 |
 | Prompt injection (optional bonus) | 4 |
 
-**As built (M10):** 43 hand-verified questions (`eval/golden/golden.jsonl`), all from the **test** split (seed 7), no two sharing a gold paragraph:
+**As built (M10):** 43 hand-verified questions (`eval/golden/golden.jsonl`), all from the **test** split (seed 7), no two sharing a gold paragraph. In M11 the evaluation showed G20 was answerable after all and it was dropped, so the final set has **42** (6 unanswerable); see the M11 results below.
 
 | Category | n | Construction |
 |---|---|---|
@@ -410,6 +412,8 @@ Findings:
 | FastAPI + HTMX templates | Most control, most UI code |
 
 **Chosen:** Gradio in FastAPI. The UI calls the same service layer as the REST API, so there is one code path to test.
+
+**Superseded in M12:** Gradio cost ~55 MB at import and the app did not fit 512 MB, so it was replaced by one static page calling the REST API (`ui/static/index.html`); see the memory fix below.
 
 **As built (M12):**
 - REST API (`api/main.py`, OpenAPI docs at `/docs`): `POST /api/ask` (question, mode agent|baseline) → status, answer, claims with source labels, cited and retrieved sources, warnings, refusal reason, usage and the agent's trace; `GET /api/documents`, `GET /api/documents/{id}`, `POST /api/documents` (multipart upload; same file name = update), `DELETE /api/documents/{id}`; `/health`, `/health/deep`.
